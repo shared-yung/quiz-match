@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "Vue.volar",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "editorconfig.editorconfig",
+    "github.copilot",
+    "github.copilot-chat",
+    "anthropic.claude-code",
+    "github.vscode-github-actions"
+  ]
+}

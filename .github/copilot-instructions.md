@@ -1,0 +1,16 @@
+# Copilot 向け指示
+
+**規約の実体はリポジトリルートの [CLAUDE.md](../CLAUDE.md) と [docs/](../docs/README.md) にある。** ここには重複して書かない。作業前にそちらを読むこと。
+
+要点だけ再掲する。
+
+- 作業は GitHub Issue 起点。issue のない変更は入れない
+- ブランチは `<type>/<issue番号>-<slug>`（例 `feat/42-quiz-scoring`）。`main` への直 push は禁止
+- コミットは Conventional Commits + フッターに `Refs: #<番号>`。scope は feature 名
+- パッケージ操作は bun（npm / yarn / pnpm は使わない）
+- ソースは feature-first オニオン。`src/features/<feature>/{domain,use-case,infrastructure,presentation}`
+- domain 層で import してよい外部ライブラリは zod のみ
+- presentation は infrastructure を直接呼ばず、必ず use-case を経由する
+- 他 feature を参照するときは `features/<name>/index.ts` の公開 API 経由
+
+詳細な根拠と手順は [docs/README.md](../docs/README.md) のインデックスから辿る。

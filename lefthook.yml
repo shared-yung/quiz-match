@@ -1,0 +1,19 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: '*.{js,ts,vue}'
+      run: bun x eslint --fix {staged_files} && git add {staged_files}
+    format:
+      glob: '*.{js,ts,vue,json,md,yml,yaml}'
+      run: bun x prettier --write {staged_files} && git add {staged_files}
+
+commit-msg:
+  commands:
+    commitlint:
+      run: sh scripts/commit-msg.sh {1}
+
+pre-push:
+  commands:
+    branch-name:
+      run: sh scripts/check-branch-name.sh
