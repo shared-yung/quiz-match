@@ -9,13 +9,7 @@ import { base } from '@quiz-match/eslint-config/base';
 // （そうしないとルートの設定でプロジェクトのソースが lint されてしまう）。
 export default [
   {
-    ignores: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.quasar/**',
-      '**/coverage/**',
-      // ここにプロジェクトフォルダを追加する（例: 'quiz-app/**'）
-    ],
+    ignores: ['**/node_modules/**', '**/dist/**', '**/.quasar/**', '**/coverage/**', 'quiz-app/**'],
   },
   ...base,
   {

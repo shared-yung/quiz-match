@@ -19,6 +19,14 @@ export const base = [
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    files: ['**/*.d.ts'],
+    rules: {
+      // 宣言マージで型を足すための空 interface は .d.ts では正当なパターン
+      // （例: Quasar が生成する env.d.ts の ImportMetaEnv）
+      '@typescript-eslint/no-empty-object-type': 'off',
+    },
+  },
   prettier,
 ];
 

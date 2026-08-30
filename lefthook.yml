@@ -1,11 +1,20 @@
+# ESLint の flat config はサブディレクトリへカスケードしないため、
+# ルートと各プロジェクトで別々に eslint を起動する必要がある。
+# lefthook の `root:` を使うとその作業ディレクトリで {staged_files} が解決される。
 pre-commit:
   parallel: true
   commands:
-    lint:
+    lint-root:
+      glob: '*.{js,mjs,cjs,ts,vue}'
+      exclude:
+        - 'quiz-app/**'
+      run: bun x eslint --fix {staged_files} && git add {staged_files}
+    lint-quiz-app:
+      root: 'quiz-app/'
       glob: '*.{js,ts,vue}'
       run: bun x eslint --fix {staged_files} && git add {staged_files}
     format:
-      glob: '*.{js,ts,vue,json,md,yml,yaml}'
+      glob: '*.{js,mjs,cjs,ts,vue,json,md,yml,yaml,scss,html}'
       run: bun x prettier --write {staged_files} && git add {staged_files}
 
 commit-msg:

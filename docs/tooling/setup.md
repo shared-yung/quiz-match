@@ -101,9 +101,12 @@ git ls-files --eol
 3. ルートの `eslint.config.js` の `ignores` にもそのフォルダを追加する
    - flat config はサブディレクトリへカスケードしないため、追加しないとルートの設定でプロジェクトのソースが lint されてしまう
 4. プロジェクト側の `package.json` に `lint` / `typecheck` / `test` スクリプトを定義する（ルートから委譲される）
-5. プロジェクト側に `eslint.config.js` を置く → [ESLint による層の強制](eslint-boundaries.md)
-6. プロジェクト側の `tsconfig.json` から `../tsconfig.base.json` を extends する
-7. `<project>/docs/{spec,architecture,adr}/` を作る
+5. `lefthook.yml` の `pre-commit` にそのプロジェクト用の lint コマンドを追加する（`root:` にフォルダを指定）
+   - ルートから `eslint` を起動してもプロジェクトの設定は読まれず、staged ファイルが素通りする
+6. プロジェクト側に `eslint.config.js` を置く → [ESLint による層の強制](eslint-boundaries.md)
+7. プロジェクト側の `tsconfig.json` に `../tsconfig.base.json` を足す
+   - Quasar は `./.quasar/tsconfig.json` が必須なので差し替えず、`"extends": ["./.quasar/tsconfig.json", "../tsconfig.base.json"]` の配列形式で両方を適用する
+8. `<project>/docs/{spec,architecture,adr}/` を作る
 
 ## リポジトリ全体の構成
 
