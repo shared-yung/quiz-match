@@ -10,7 +10,10 @@ import boundaries from 'eslint-plugin-boundaries';
  *   src/features/<feature>/presentation    Vue コンポーネントと Pinia ストア
  *   src/features/<feature>/index.ts        feature の公開 API。他 feature はここだけを参照できる
  *   src/shared/**                          feature をまたぐ共有コード
- *   src/{boot,router,layouts,pages}/**     アプリ組み立て層（合成ルート）
+ *   src/App.vue と src/{boot,router,layouts,pages,components,stores,css,assets}/**
+ *                                          アプリ組み立て層（合成ルート）。
+ *                                          src/stores は Quasar が要求する Pinia インスタンスの生成場所で、
+ *                                          feature のストアではない（そちらは presentation/stores/ に置く）
  *
  * @param {{ root?: string }} options root はソースルート。既定は 'src'
  */
@@ -60,7 +63,12 @@ export function onionBoundaries({ root = 'src' } = {}) {
           capture: ['feature'],
         },
         { type: 'shared', mode: 'full', pattern: `${root}/shared/**/*` },
-        { type: 'app', mode: 'full', pattern: `${root}/{boot,router,layouts,pages}/**/*` },
+        {
+          type: 'app',
+          mode: 'full',
+          pattern: `${root}/{boot,router,layouts,pages,components,stores,css,assets}/**/*`,
+        },
+        { type: 'app', mode: 'full', pattern: `${root}/App.vue` },
       ],
     },
     rules: {
@@ -111,7 +119,7 @@ export function onionBoundaries({ root = 'src' } = {}) {
             },
 
             // アプリ組み立て層は feature の公開 API と shared のみ
-            { from: ['app'], allow: ['feature-api', 'shared'] },
+            { from: ['app'], allow: ['app', 'feature-api', 'shared'] },
 
             { from: ['shared'], allow: ['shared'] },
           ],
