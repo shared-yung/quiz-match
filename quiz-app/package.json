@@ -13,7 +13,9 @@
     "postinstall": "quasar prepare --silent",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "echo \"quiz-app: テスト未設定（issue #4 で追加）\""
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "pinia": "^4.0.2",
@@ -23,14 +25,18 @@
     "vue-router": "^5.0.6"
   },
   "devDependencies": {
-    "vue-tsc": "^3.3.3",
-    "@types/node": "^22.19.11",
     "@quasar/app-vite": "^3.8.1",
+    "@quasar/quasar-app-extension-testing-unit-vitest": "^3.0.0",
+    "@quiz-match/eslint-config": "workspace:*",
+    "@types/node": "^22.19.11",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vue/test-utils": "^2.5.0",
     "autoprefixer": "^10.4.27",
+    "eslint": "^9.0.0",
     "postcss": "^8.5.8",
     "typescript": "^6.0.0",
-    "@quiz-match/eslint-config": "workspace:*",
-    "eslint": "^9.0.0"
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.3"
   },
   "keywords": [
     "quasar",
