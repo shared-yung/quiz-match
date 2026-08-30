@@ -27,6 +27,7 @@ permission ルールは**前方一致**でしか判定できない。次のよ�
 
 - `git push --force` / `git push -f`
 - `gh repo delete`
+- `gh pr merge` — 承認プロンプトには**差分が表示されない**ため、承認をレビューの代わりにできない。マージは最終的な判断なので、GitHub の UI で差分と CI を見ながら人間が行う（[issue-driven 開発](issue-driven.md)）
 
 ## 既知の副作用
 

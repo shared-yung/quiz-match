@@ -1,6 +1,11 @@
 {
   "permissions": {
-    "deny": ["Bash(git push --force*)", "Bash(git push -f *)", "Bash(gh repo delete*)"],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(gh repo delete*)",
+      "Bash(gh pr merge*)"
+    ],
     "ask": ["Bash(git push)", "Bash(git push *)"]
   },
   "hooks": {
