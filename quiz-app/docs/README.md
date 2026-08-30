@@ -15,4 +15,6 @@
 
 ## 決定の記録
 
-`adr/` — このプロジェクト固有の判断。リポジトリ全体にまたがる判断は[ルートの docs/adr/](../../docs/adr/)。
+- [0001 通信に WebRTC を採用し、Epic Online Services を見送る](adr/0001-transport.md) — EOS がブラウザで使えない理由と、設計意図をどう保ったか
+
+リポジトリ全体にまたがる判断は[ルートの docs/adr/](../../docs/adr/)。
