@@ -2,12 +2,18 @@
 
 このリポジトリ全体に適用される規約。**プロジェクト固有の仕様は各プロジェクトフォルダ直下の `docs/`**（`<project>/docs/spec` `architecture` `adr`）に置く。
 
+設計判断の記録（ADR）は対象範囲で置き場所が分かれる。**リポジトリ全体にまたがる判断はここの `adr/`、プロジェクト固有の判断は `<project>/docs/adr/`。**
+
 ## 開発フロー
 
 - [issue-driven 開発](workflow/issue-driven.md) — 作業の始め方と、必須ルールをどう強制しているか
 - [コミット・ブランチ規約](workflow/commit-and-branch.md) — 命名形式と具体例
 - [ブランチ保護の設定](workflow/branch-protection.md) — GitHub 側の初期設定手順
 - [リモート操作のガードレール](workflow/remote-guardrails.md) — AI にリモートを触らせる前の承認の仕組み
+
+## 決定の記録（ADR）
+
+- [0001 Linter と Formatter に ESLint + Prettier を使い続ける](adr/0001-linter-and-formatter.md) — oxlint / oxfmt を評価して見送った理由と、再検討のトリガー
 
 ## アーキテクチャ
 

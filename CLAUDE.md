@@ -43,5 +43,6 @@ scripts/          hook と CI から呼ぶシェルスクリプト
 | セットアップ、プロジェクト追加手順    | [docs/tooling/setup.md](docs/tooling/setup.md)                           |
 | ESLint の層強制、違反時の直し方       | [docs/tooling/eslint-boundaries.md](docs/tooling/eslint-boundaries.md)   |
 | テストの書き分け                      | [docs/tooling/testing.md](docs/tooling/testing.md)                       |
+| ツール選定など全体の決定の経緯        | [docs/adr/](docs/adr/)                                                   |
 
-プロジェクト固有の仕様は `<project-name>/docs/spec/`、設計判断の記録は `<project-name>/docs/adr/` にある。
+プロジェクト固有の仕様は `<project-name>/docs/spec/` にある。設計判断の記録（ADR）は対象範囲で分かれ、**リポジトリ全体にまたがる判断は `docs/adr/`、プロジェクト固有の判断は `<project-name>/docs/adr/`** に置く。
