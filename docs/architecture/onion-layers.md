@@ -14,7 +14,9 @@
 │       ├── presentation/     Vue コンポーネントと Pinia ストア
 │       └── index.ts          この feature の公開 API。他 feature はここだけを見る
 ├── shared/                   feature をまたぐ共有コード
-└── boot/ router/ layouts/ pages/   アプリ組み立て層（合成ルート）
+├── App.vue
+└── boot/ router/ layouts/ pages/ components/ stores/ css/ assets/
+                              アプリ組み立て層（合成ルート）
 ```
 
 ## 依存の向き
@@ -37,6 +39,8 @@
 **feature をまたぐ参照は `index.ts` 経由のみ。** 他 feature の `domain/` などに直接手を伸ばすことはできない。feature の内部構造を後から変えても影響範囲が閉じる。
 
 **DI の組み立ては `index.ts` かアプリ組み立て層で行う。** use-case は domain 側に置いた interface に依存し、その実装（infrastructure）を注入されるだけ。use-case から infrastructure への import は許可していない。
+
+**`src/stores/` は feature のストア置き場ではない。** ここは Quasar が要求する Pinia インスタンスの生成場所で、アプリ組み立て層の一部。feature のストアは `features/<feature>/presentation/stores/` に置く（[Pinia の責務境界](pinia.md)）。
 
 ## domain 層の外部依存
 
