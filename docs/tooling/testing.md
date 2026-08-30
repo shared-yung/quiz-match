@@ -4,6 +4,38 @@
 
 `bun test` は使わない。`.vue` の SFC を解決できず、Quasar / Vite プラグイン・DOM 環境・`@vue/test-utils` を通す必要があるため presentation 層で使えない。domain だけ bun test にする手もあるが、ランナーが2種類になる運用コストのほうが高い。
 
+## 置き場所
+
+**テストは `src` の隣の `test/` に置き、`src` の木をミラーする。**
+
+```
+quiz-app/
+├── src/features/room/domain/rule-set.ts
+└── test/features/room/domain/rule-set.spec.ts
+```
+
+プロダクションコードとテストコードを分離するため。`src` を見れば出荷されるものだけが分かる。
+
+### 層の強制はテストにも効く
+
+`boundaries` の設定で **`test/` の各ディレクトリを `src` と同じ層として分類している**（`test/features/*/domain` → `domain` 要素）。そのため domain のテストが use-case を import すると落ちる。
+
+これは単なる整理ではない。**テストの置き場所が層の切り分けと一致していること**を機械的に保証する仕組みで、これが無いと domain のテストが外側を触り始めても誰も気づかない。
+
+### import は `@/` を使う
+
+```ts
+import { defaultRuleSet } from '@/features/room/domain/rule-set';
+```
+
+`../../../../src/...` は書かない。**unit project は Quasar の Vite 設定を継承しないため、`vitest.config.ts` で `resolve.alias` を自前で定義している。** これが無いと `@/` は解決できない。
+
+### テストダブル
+
+in-memory の fake は **`test/features/<feature>/<layer>/*.fake.ts`** に置く。使う場所（そのレイヤーのテスト）の隣で、層の判定も `src` と同じように効く。
+
+`src` に入らないので**カバレッジの計測対象にならない**。除外設定が要らないのが利点。
+
 ## 層ごとの書き分け
 
 | 層               | 環境       | 何を書くか                                                                         |
@@ -19,8 +51,10 @@ use-case ではモックライブラリより **fake 実装**を優先する。f
 ## 構成
 
 - Vitest の projects 機能で 2 つに分ける。`unit`（node 環境: domain / use-case / infrastructure）と `component`（happy-dom 環境: presentation）。node 側は Quasar を通さないので高速
+- `unit` は Quasar の Vite 設定を継承しないので `resolve.alias` を自前で持つ
 - Quasar コンポーネントの解決には `@quasar/quasar-app-extension-testing-unit-vitest` が必要。`quasarViteTestingConfig()` が quasar.config から Vite 設定を組み立て、`installQuasarPlugin()` がテストに Quasar を注入する
 - DOM 環境は jsdom ではなく **happy-dom**。上記 app-extension が同梱しており、追加の依存が要らず高速なため
+- カバレッジの対象は `src` のみ。テストが `src` の外にあるため、除外指定に頼らずプロダクションコードだけが計測される
 - カバレッジ閾値は **domain / use-case にのみ課す**（v8 provider）。presentation と infrastructure には課さない
 
 presentation にカバレッジ閾値を課すと、数字を満たすためだけの意味のないテストが増える。ロジックは内側の層にあるはずなので、そちらで担保する。

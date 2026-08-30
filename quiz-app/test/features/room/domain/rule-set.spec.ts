@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultRuleSet, ruleSetSchema } from './rule-set';
+import { defaultRuleSet, ruleSetSchema } from '@/features/room/domain/rule-set';
 
 describe('RuleSet', () => {
   describe('既定値', () => {

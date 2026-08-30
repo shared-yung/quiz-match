@@ -25,6 +25,10 @@ export default [
 
 ## テストファイルの扱い
 
+テストは `test/` に置くが、**`boundaries/include` を `{src,test}` の両方に広げ、`test/` の各ディレクトリを `src` と同じ層として分類している。** `test/features/*/domain` は `domain` 要素になる。
+
+これをしないと `test/` が解析対象外になり、テストに対する層の強制が消える。
+
 `**/*.spec.ts` では `boundaries/external` を無効にしている。テストは層を問わず vitest や `@vue/test-utils` を import するため。
 
 **`element-types` は維持している。** 層をまたぐ import はテストでも禁止で、domain のテストが use-case を触ることはできない。テストの置き場所が層の切り分けと一致していることを保つため。
