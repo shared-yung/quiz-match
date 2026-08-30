@@ -3,7 +3,7 @@
     <div>
       <div style="font-size: 30vh">404</div>
 
-      <div class="text-h2" style="opacity: 0.4">Oops. Nothing here...</div>
+      <div class="text-h2" style="opacity: 0.4">{{ t('error.notFound') }}</div>
 
       <q-btn
         class="q-mt-xl"
@@ -11,9 +11,15 @@
         text-color="blue"
         unelevated
         to="/"
-        label="Go Home"
+        :label="t('error.backToHome')"
         no-caps
       />
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { useAppI18n } from '@/shared/i18n';
+
+const { t } = useAppI18n();
+</script>
