@@ -4,17 +4,22 @@ import { en } from './en';
 /**
  * 翻訳キーの型。ja.ts の構造がマスターで、他のロケールはこれに従う。
  * 構造がずれると en.ts 側でコンパイルエラーになる。
+ *
+ * 入れ子の深さは問わない。名前空間を細かく切れるようにするため。
  */
-export type MessageSchema = {
-  [K in keyof typeof ja]: { [P in keyof (typeof ja)[K]]: string };
-};
+type Schema<T> = { [K in keyof T]: T[K] extends string ? string : Schema<T[K]> };
+
+export type MessageSchema = Schema<typeof ja>;
 
 /**
- * `common.ok` のようなドット区切りのキー。useAppI18n がこれで `t` を縛る。
+ * `common.ok` や `quiz.judgeDialog.correct` のようなドット区切りのキー。
+ * useAppI18n がこれで `t` を縛る。葉（文字列）だけがキーになる。
  */
-export type MessageKey = {
-  [K in keyof MessageSchema & string]: `${K}.${keyof MessageSchema[K] & string}`;
-}[keyof MessageSchema & string];
+type Leaves<T> = {
+  [K in keyof T & string]: T[K] extends string ? K : `${K}.${Leaves<T[K]>}`;
+}[keyof T & string];
+
+export type MessageKey = Leaves<MessageSchema>;
 
 export const SUPPORTED_LOCALES = ['ja', 'en'] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];

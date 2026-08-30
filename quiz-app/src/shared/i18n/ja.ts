@@ -3,6 +3,10 @@
  * 他のロケールはこの構造に従うことを型で強制される（index.ts を参照）。
  */
 export const ja = {
+  app: {
+    title: '早押しクイズ',
+    underConstruction: 'この画面はこれから作ります。',
+  },
   common: {
     ok: 'OK',
     cancel: 'キャンセル',

@@ -14,6 +14,7 @@
 ## 決定の記録（ADR）
 
 - [0001 Linter と Formatter に ESLint + Prettier を使い続ける](adr/0001-linter-and-formatter.md) — oxlint / oxfmt を評価して見送った理由と、再検討のトリガー
+- [0002 i18n のロケールファイルは TypeScript で持つ](adr/0002-i18n-message-format.md) — 未使用キー検出を諦めて型の保証を取った理由
 
 ## アーキテクチャ
 
