@@ -7,6 +7,7 @@
 - [issue-driven 開発](workflow/issue-driven.md) — 作業の始め方と、必須ルールをどう強制しているか
 - [コミット・ブランチ規約](workflow/commit-and-branch.md) — 命名形式と具体例
 - [ブランチ保護の設定](workflow/branch-protection.md) — GitHub 側の初期設定手順
+- [リモート操作のガードレール](workflow/remote-guardrails.md) — AI にリモートを触らせる前の承認の仕組み
 
 ## アーキテクチャ
 

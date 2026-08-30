@@ -36,6 +36,7 @@ scripts/          hook と CI から呼ぶシェルスクリプト
 | 作業の始め方、issue-driven の強制方法 | [docs/workflow/issue-driven.md](docs/workflow/issue-driven.md)           |
 | ブランチ名とコミットメッセージの形式  | [docs/workflow/commit-and-branch.md](docs/workflow/commit-and-branch.md) |
 | GitHub 側の初期設定                   | [docs/workflow/branch-protection.md](docs/workflow/branch-protection.md) |
+| リモート操作の承認ガードレール        | [docs/workflow/remote-guardrails.md](docs/workflow/remote-guardrails.md) |
 | 層構成と依存の向き                    | [docs/architecture/onion-layers.md](docs/architecture/onion-layers.md)   |
 | Pinia に何を書いてよいか              | [docs/architecture/pinia.md](docs/architecture/pinia.md)                 |
 | API の型生成と腐敗防止層              | [docs/architecture/api-client.md](docs/architecture/api-client.md)       |
