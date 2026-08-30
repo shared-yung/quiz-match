@@ -19,7 +19,7 @@ export default [
   },
   ...base,
   {
-    files: ['**/*.js'],
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
     languageOptions: {
       globals: {
         process: 'readonly',
