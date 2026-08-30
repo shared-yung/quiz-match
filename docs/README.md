@@ -20,6 +20,7 @@
 - [オニオンの層構成](architecture/onion-layers.md) — ディレクトリ構成と依存の向き
 - [Pinia の責務境界](architecture/pinia.md) — ストアに書いてよいこと・いけないこと
 - [API クライアントと型生成](architecture/api-client.md) — OpenAPI からの生成と腐敗防止層
+- [i18n の方針](architecture/i18n.md) — 置き場所と、キーを型で縛る理由
 
 ## ツール
 
