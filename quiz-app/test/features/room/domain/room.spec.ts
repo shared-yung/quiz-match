@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { hasPlayer, isFull, roomSchema, type Room } from './room';
-import { playerIdSchema } from './player';
-import { ruleSetSchema } from './rule-set';
+import { hasPlayer, isFull, roomSchema, type Room } from '@/features/room/domain/room';
+import { playerIdSchema } from '@/features/room/domain/player';
+import { ruleSetSchema } from '@/features/room/domain/rule-set';
 
 const playerId = (v: string) => playerIdSchema.parse(v);
 

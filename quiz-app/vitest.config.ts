@@ -1,27 +1,34 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import { quasarViteTestingConfig } from '@quasar/quasar-app-extension-testing-unit-vitest/config';
 
 /**
- * テストは2つの project に分ける（docs/tooling/testing.md）。
+ * テストは src の隣の test/ に置き、src の木をミラーする（docs/tooling/testing.md）。
  *
+ * project は2つ。
  * - unit: domain / use-case / infrastructure。node 環境で Quasar を通さないため高速
  * - component: presentation。Quasar の Vite 設定をそのまま使い、DOM 環境で動かす
  *
- * カバレッジ閾値は domain / use-case にのみ課す。presentation に課すと
- * 数字を満たすためだけのテストが増えるため。
+ * カバレッジは src のみを対象にする。テストが src の外にあるので、除外指定に
+ * 頼らずプロダクションコードだけが計測される。閾値は domain / use-case のみ。
  */
 const quasarConfig = await quasarViteTestingConfig();
+
+const srcAlias = fileURLToPath(new URL('./src', import.meta.url));
 
 export default defineConfig({
   test: {
     projects: [
       {
+        // unit は Quasar の Vite 設定を継承しないので、エイリアスを自前で用意する。
+        // これが無いと test/ からの `@/...` が解決できない。
+        resolve: { alias: { '@': srcAlias } },
         test: {
           name: 'unit',
           environment: 'node',
           include: [
-            'src/features/*/{domain,use-case,infrastructure}/**/*.spec.ts',
-            'src/shared/**/*.spec.ts',
+            'test/features/*/{domain,use-case,infrastructure}/**/*.spec.ts',
+            'test/shared/**/*.spec.ts',
           ],
         },
       },
@@ -29,15 +36,14 @@ export default defineConfig({
         test: {
           name: 'component',
           environment: 'happy-dom',
-          include: ['src/features/*/presentation/**/*.spec.ts', 'src/components/**/*.spec.ts'],
+          include: ['test/features/*/presentation/**/*.spec.ts', 'test/components/**/*.spec.ts'],
         },
       }),
     ],
     coverage: {
       provider: 'v8',
-      // .gitkeep などを拾わないよう拡張子まで指定する
+      // 拡張子まで指定して .gitkeep を拾わないようにする
       include: ['src/features/*/{domain,use-case}/**/*.ts'],
-      exclude: ['**/*.spec.ts'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },

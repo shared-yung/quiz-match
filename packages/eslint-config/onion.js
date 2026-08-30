@@ -10,14 +10,18 @@ import boundaries from 'eslint-plugin-boundaries';
  *   src/features/<feature>/presentation    Vue コンポーネントと Pinia ストア
  *   src/features/<feature>/index.ts        feature の公開 API。他 feature はここだけを参照できる
  *   src/shared/**                          feature をまたぐ共有コード
+ *   test/**                                テスト。src の木をミラーし、同じ層として扱う。
+ *                                          テストダブルは test/features/<f>/<layer>/*.fake.ts
  *   src/App.vue と src/{boot,router,layouts,pages,components,stores,css,assets}/**
  *                                          アプリ組み立て層（合成ルート）。
  *                                          src/stores は Quasar が要求する Pinia インスタンスの生成場所で、
  *                                          feature のストアではない（そちらは presentation/stores/ に置く）
  *
- * @param {{ root?: string }} options root はソースルート。既定は 'src'
+ * @param {{ root?: string, testRoot?: string }} options
+ *   root はソースルート（既定 'src'）、testRoot はテストのルート（既定 'test'）。
+ *   test/ は src の木をミラーし、同じ層として分類される
  */
-export function onionBoundaries({ root = 'src' } = {}) {
+export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
   const own = (type) => [type, { feature: '${from.feature}' }];
 
   return [
@@ -31,7 +35,9 @@ export function onionBoundaries({ root = 'src' } = {}) {
           node: { extensions: ['.js', '.jsx', '.mjs', '.ts', '.tsx', '.vue', '.json'] },
           typescript: { alwaysTryTypes: true },
         },
-        'boundaries/include': [`${root}/**/*`],
+        // テストは test/ に置くが、src の木をミラーするので層として分類する。
+        // これをしないと test/ が解析対象外になり、テストに対する層の強制が消える。
+        'boundaries/include': [`${root}/**/*`, `${testRoot}/**/*`],
         'boundaries/elements': [
           {
             type: 'feature-api',

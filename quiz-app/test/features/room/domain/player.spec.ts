@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { playerSchema } from './player';
+import { playerSchema } from '@/features/room/domain/player';
 
 describe('Player', () => {
   it('前後の空白を落とす', () => {
