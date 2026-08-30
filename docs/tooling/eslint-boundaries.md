@@ -13,13 +13,21 @@ export default [
   { ignores: ['dist/**', '.quasar/**', 'coverage/**'] },
   ...base,
   ...vue,
-  onionBoundaries(), // ソースルートが 'src' 以外なら onionBoundaries({ root: 'app' })
+  ...onionBoundaries(), // ソースルートが 'src' 以外なら onionBoundaries({ root: 'app' })
 ];
 ```
 
 `onionBoundaries()` は単体では使えない。**`base` と組み合わせること。** flat config では `.ts` / `.vue` を lint 対象にする設定が別途必要で、それを持っているのが `base` と `vue` のため。
 
 さらにプロジェクトの `package.json` に `lint` スクリプトを定義する。ESLint の flat config はサブディレクトリの設定ファイルへカスケードしないため、ルートの `eslint .` はプロジェクトの設定を読まない。ルートの `bun run lint` が `--filter '*' lint` で各プロジェクトに委譲する構造になっている。あわせてルートの `eslint.config.js` の `ignores` にプロジェクトフォルダを追加する。
+
+`onionBoundaries()` は**配列を返す**ので展開して使う。テストファイル向けの緩和を別の設定オブジェクトとして持っているため。
+
+## テストファイルの扱い
+
+`**/*.spec.ts` では `boundaries/external` を無効にしている。テストは層を問わず vitest や `@vue/test-utils` を import するため。
+
+**`element-types` は維持している。** 層をまたぐ import はテストでも禁止で、domain のテストが use-case を触ることはできない。テストの置き場所が層の切り分けと一致していることを保つため。
 
 ## 何が落ちるか
 

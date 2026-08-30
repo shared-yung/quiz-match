@@ -4,5 +4,5 @@ export default [
   { ignores: ['dist/**', '.quasar/**', 'coverage/**', 'node_modules/**'] },
   ...base,
   ...vue,
-  onionBoundaries(),
+  ...onionBoundaries(),
 ];
