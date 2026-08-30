@@ -4,6 +4,10 @@
 // permission ルール（.claude/settings.json）は前方一致なので
 // `cd x && gh issue create ...` のような形を取りこぼす。
 // このフックはコマンド文字列全体を走査するのでそれを拾える。
+//
+// なお settings.json の deny はこのフックの ask より優先される。
+// `gh pr merge` はここでは ask 判定になるが、deny に入れてあるため実行されない
+// （docs/workflow/remote-guardrails.md を参照）。
 let raw = '';
 process.stdin.on('data', (c) => (raw += c));
 process.stdin.on('end', () => {
