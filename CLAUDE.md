@@ -45,4 +45,4 @@ scripts/          hook と CI から呼ぶシェルスクリプト
 | テストの書き分け                      | [docs/tooling/testing.md](docs/tooling/testing.md)                       |
 | ツール選定など全体の決定の経緯        | [docs/adr/](docs/adr/)                                                   |
 
-プロジェクト固有の仕様は `<project-name>/docs/spec/` にある。設計判断の記録（ADR）は対象範囲で分かれ、**リポジトリ全体にまたがる判断は `docs/adr/`、プロジェクト固有の判断は `<project-name>/docs/adr/`** に置く。
+プロジェクト固有の仕様は `<project-name>/docs/spec/` にある（[quiz-app のドキュメント](quiz-app/docs/README.md)）。設計判断の記録（ADR）は対象範囲で分かれ、**リポジトリ全体にまたがる判断は `docs/adr/`、プロジェクト固有の判断は `<project-name>/docs/adr/`** に置く。
