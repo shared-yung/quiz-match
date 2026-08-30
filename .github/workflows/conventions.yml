@@ -39,6 +39,11 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: printf '%s' "$PR_TITLE" | bun x commitlint --config commitlint.title.config.js --verbose
 
+      - name: 計画との差異が書かれているか検証
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" | node scripts/check-pr-divergence.mjs
+
       - name: PR に issue がリンクされているか検証
         env:
           GH_TOKEN: ${{ github.token }}
