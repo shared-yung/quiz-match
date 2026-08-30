@@ -35,7 +35,9 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/features/*/domain/**', 'src/features/*/use-case/**'],
+      // .gitkeep などを拾わないよう拡張子まで指定する
+      include: ['src/features/*/{domain,use-case}/**/*.ts'],
+      exclude: ['**/*.spec.ts'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },
