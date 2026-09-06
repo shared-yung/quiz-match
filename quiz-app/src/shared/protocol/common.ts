@@ -44,7 +44,22 @@ export const questionIndexSchema = z.number().int().nonnegative();
 export const revealedCharSchema = z.string().refine((value) => [...value].length === 1);
 
 /** 出題の進行状態。docs/spec/game-rules.md の状態遷移と対応する。 */
-export const phaseSchema = z.enum(['idle', 'ready', 'revealing', 'buzzed', 'judging', 'closed']);
+export const Phase = {
+  /** 問題が未設定 */
+  Idle: 'idle',
+  /** 問題文はあるが未公開 */
+  Ready: 'ready',
+  /** 1文字ずつ公開中 */
+  Revealing: 'revealing',
+  /** 押した人の回答待ち */
+  Buzzed: 'buzzed',
+  /** ホストの判定待ち */
+  Judging: 'judging',
+  /** この問題は終了 */
+  Closed: 'closed',
+} as const;
+
+export const phaseSchema = z.enum(Phase);
 export type Phase = z.infer<typeof phaseSchema>;
 
 /** 参加者1人分の公開情報。 */
@@ -67,6 +82,19 @@ export const scoresSchema = z.array(
 );
 export type Scores = z.infer<typeof scoresSchema>;
 
+/** 誤答（無回答による時間切れを含む）が出たときの挙動。 */
+export const OnWrongAnswer = {
+  /** 誤答者をロックアウトし、問題文の公開を再開する */
+  Continue: 'continue',
+  /** その問題を打ち切る */
+  EndQuestion: 'endQuestion',
+  /** ホストがその場でどちらかを選ぶ */
+  HostDecides: 'hostDecides',
+} as const;
+
+export const onWrongAnswerSchema = z.enum(OnWrongAnswer);
+export type OnWrongAnswer = z.infer<typeof onWrongAnswerSchema>;
+
 /**
  * 回線上の RuleSet。
  *
@@ -78,7 +106,7 @@ export type Scores = z.infer<typeof scoresSchema>;
  * 更新する。食い違いは net の infrastructure の変換で型エラーとして出る。
  */
 export const ruleSetPayloadSchema = z.object({
-  onWrongAnswer: z.enum(['continue', 'endQuestion', 'hostDecides']),
+  onWrongAnswer: onWrongAnswerSchema,
   answerTimeLimitMs: z.number().int().positive(),
   revealIntervalMs: z.number().int().positive(),
   postRevealGraceMs: z.number().int().nonnegative(),

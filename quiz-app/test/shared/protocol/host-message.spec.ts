@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hostMessageSchema } from '@/shared/protocol/host-message';
+import { hostMessageSchema, QuestionEndReason } from '@/shared/protocol/host-message';
 import type { RuleSetPayload } from '@/shared/protocol/common';
 
 /** 回線上の RuleSet は既定値を持たないので、テストでも全項目を埋める。 */
@@ -132,7 +132,7 @@ describe('Host → Player のメッセージ', () => {
   });
 
   describe('question/end', () => {
-    it.each(['correct', 'wrongAnswer', 'timeUp', 'allLockedOut'])('%s を受け付ける', (reason) => {
+    it.each(Object.values(QuestionEndReason))('%s を受け付ける', (reason) => {
       const message = { type: 'question/end', answerText: '答え', reason };
 
       expect(hostMessageSchema.safeParse(message).success).toBe(true);

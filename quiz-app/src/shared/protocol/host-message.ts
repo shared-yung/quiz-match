@@ -48,10 +48,21 @@ export const questionCharMessageSchema = z.object({
   char: revealedCharSchema,
 });
 
-/** 文字の公開を止める。早押しを受理したか、ホストが手で止めたか。 */
+/** 文字の公開を止めた理由。 */
+export const RevealStopReason = {
+  /** 早押しを受理した */
+  Buzz: 'buzz',
+  /** ホストが手で止めた */
+  Manual: 'manual',
+} as const;
+
+export const revealStopReasonSchema = z.enum(RevealStopReason);
+export type RevealStopReason = z.infer<typeof revealStopReasonSchema>;
+
+/** 文字の公開を止める。 */
 export const revealStopMessageSchema = z.object({
   type: z.literal('question/reveal-stop'),
-  reason: z.enum(['buzz', 'manual']),
+  reason: revealStopReasonSchema,
 });
 
 /** 早押しを採用した。回答の締め切りは**ホストの時計での絶対時刻**。 */
@@ -61,16 +72,26 @@ export const buzzAcceptedMessageSchema = z.object({
   answerDeadline: timestampSchema,
 });
 
+/** 押下を却下した理由。 */
+export const BuzzRejectedReason = {
+  /** 先着に負けた */
+  LostRace: 'lostRace',
+  /** その問題ではもう押せない */
+  LockedOut: 'lockedOut',
+} as const;
+
+export const buzzRejectedReasonSchema = z.enum(BuzzRejectedReason);
+export type BuzzRejectedReason = z.infer<typeof buzzRejectedReasonSchema>;
+
 /**
  * 押下を却下した。**却下された本人にだけ送る。**
  *
  * これはエラー応答ではなく、正規クライアントの UI を戻すための通知。相手が既に
- * 知っている事実（先着に負けた / 自分がロックアウト中）しか含まないので、改造
- * クライアントに情報を与えない。
+ * 知っている事実しか含まないので、改造クライアントに情報を与えない。
  */
 export const buzzRejectedMessageSchema = z.object({
   type: z.literal('buzz/rejected'),
-  reason: z.enum(['lostRace', 'lockedOut']),
+  reason: buzzRejectedReasonSchema,
 });
 
 /** ホストの正誤判定の結果と、その結果として入る状態。 */
@@ -88,18 +109,27 @@ export const scoreUpdateMessageSchema = z.object({
 });
 
 /**
- * 問題の終了。**ここで初めて正解文を開示する。**
- *
- * 終了理由は docs/spec/game-rules.md の `closed` へ入る4経路に対応する。
- * - `correct`      正解が出た
- * - `wrongAnswer`  誤答で打ち切った（`endQuestion` / `hostDecides`）
- * - `timeUp`       全文公開後、猶予時間内に誰も押さなかった
- * - `allLockedOut` 押せるプレイヤーが居なくなった
+ * 問題が終わった理由。docs/spec/game-rules.md の `closed` へ入る4経路に対応する。
  */
+export const QuestionEndReason = {
+  /** 正解が出た */
+  Correct: 'correct',
+  /** 誤答で打ち切った（`endQuestion` / `hostDecides`） */
+  WrongAnswer: 'wrongAnswer',
+  /** 全文公開後、猶予時間内に誰も押さなかった */
+  TimeUp: 'timeUp',
+  /** 押せるプレイヤーが居なくなった */
+  AllLockedOut: 'allLockedOut',
+} as const;
+
+export const questionEndReasonSchema = z.enum(QuestionEndReason);
+export type QuestionEndReason = z.infer<typeof questionEndReasonSchema>;
+
+/** 問題の終了。**ここで初めて正解文を開示する。** */
 export const questionEndMessageSchema = z.object({
   type: z.literal('question/end'),
   answerText: z.string().min(1),
-  reason: z.enum(['correct', 'wrongAnswer', 'timeUp', 'allLockedOut']),
+  reason: questionEndReasonSchema,
 });
 
 /** ゲームの終了。**引き分けがあるので勝者は複数になりうる。** */
