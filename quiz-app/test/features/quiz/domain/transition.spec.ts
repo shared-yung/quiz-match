@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  BuzzedState,
-  ClosedState,
-  IdleState,
-  JudgingState,
-  QuestionState,
-  ReadyState,
-  RevealingState,
+import {
+  CloseReason,
+  type BuzzedState,
+  type ClosedState,
+  type IdleState,
+  type JudgingState,
+  type QuestionState,
+  type ReadyState,
+  type RevealingState,
 } from '@/features/quiz/domain/question-state';
 import {
+  OnWrongAnswer,
+  RejectReason,
   transition,
+  WrongAnswerChoice,
   type QuestionEvent,
-  type RejectReason,
   type TransitionContext,
   type TransitionResult,
 } from '@/features/quiz/domain/transition';
@@ -21,7 +24,7 @@ const alice = playerIdSchema.parse('alice');
 const bob = playerIdSchema.parse('bob');
 
 const context = (over: Partial<TransitionContext> = {}): TransitionContext => ({
-  rules: { onWrongAnswer: 'continue', answerTimeLimitMs: 10_000 },
+  rules: { onWrongAnswer: OnWrongAnswer.Continue, answerTimeLimitMs: 10_000 },
   players: [alice, bob],
   now: 1_000,
   ...over,
@@ -69,7 +72,7 @@ const closed = (over: Partial<ClosedState> = {}): ClosedState => ({
   phase: 'closed',
   questionIndex: 0,
   text: 'クイズ',
-  reason: 'correct',
+  reason: CloseReason.Correct,
   ...over,
 });
 
@@ -148,7 +151,7 @@ describe('出題の状態遷移', () => {
         phase: 'closed',
         questionIndex: 0,
         text: 'クイズ',
-        reason: 'correct',
+        reason: CloseReason.Correct,
       });
     });
 
@@ -168,7 +171,7 @@ describe('出題の状態遷移', () => {
 
       const next = accepted(transition(state, { type: 'graceExpired' }, context()));
 
-      expect(next).toMatchObject({ phase: 'closed', reason: 'timeUp' });
+      expect(next).toMatchObject({ phase: 'closed', reason: CloseReason.TimeUp });
     });
 
     it('closed → idle: 次の問題へ進むと番号が上がる', () => {
@@ -188,23 +191,27 @@ describe('出題の状態遷移', () => {
     });
 
     it('endQuestion: その問題を打ち切る', () => {
-      const ctx = context({ rules: { onWrongAnswer: 'endQuestion', answerTimeLimitMs: 10_000 } });
+      const ctx = context({
+        rules: { onWrongAnswer: OnWrongAnswer.EndQuestion, answerTimeLimitMs: 10_000 },
+      });
 
       const next = accepted(transition(judging(), wrong, ctx));
 
-      expect(next).toMatchObject({ phase: 'closed', reason: 'wrongAnswer' });
+      expect(next).toMatchObject({ phase: 'closed', reason: CloseReason.WrongAnswer });
     });
 
     describe('hostDecides', () => {
-      const ctx = context({ rules: { onWrongAnswer: 'hostDecides', answerTimeLimitMs: 10_000 } });
+      const ctx = context({
+        rules: { onWrongAnswer: OnWrongAnswer.HostDecides, answerTimeLimitMs: 10_000 },
+      });
 
       it('選択が無ければ遷移しない', () => {
-        expect(rejected(transition(judging(), wrong, ctx))).toBe('choiceRequired');
+        expect(rejected(transition(judging(), wrong, ctx))).toBe(RejectReason.ChoiceRequired);
       });
 
       it.each([
-        ['continue', 'revealing'],
-        ['endQuestion', 'closed'],
+        [WrongAnswerChoice.Continue, 'revealing'],
+        [WrongAnswerChoice.EndQuestion, 'closed'],
       ] as const)('%s を選ぶと %s へ進む', (choice, phase) => {
         const next = accepted(transition(judging(), { ...wrong, choice }, ctx));
 
@@ -213,11 +220,15 @@ describe('出題の状態遷移', () => {
     });
 
     it('hostDecides 以外では選択を無視する', () => {
-      const ctx = context({ rules: { onWrongAnswer: 'endQuestion', answerTimeLimitMs: 10_000 } });
+      const ctx = context({
+        rules: { onWrongAnswer: OnWrongAnswer.EndQuestion, answerTimeLimitMs: 10_000 },
+      });
 
-      const next = accepted(transition(judging(), { ...wrong, choice: 'continue' }, ctx));
+      const next = accepted(
+        transition(judging(), { ...wrong, choice: WrongAnswerChoice.Continue }, ctx),
+      );
 
-      expect(next).toMatchObject({ phase: 'closed', reason: 'wrongAnswer' });
+      expect(next).toMatchObject({ phase: 'closed', reason: CloseReason.WrongAnswer });
     });
 
     it('無回答も誤答と同じ経路をたどる', () => {
@@ -233,7 +244,7 @@ describe('出題の状態遷移', () => {
 
       const next = accepted(transition(state, { type: 'judge', correct: false }, context()));
 
-      expect(next).toMatchObject({ phase: 'closed', reason: 'allLockedOut' });
+      expect(next).toMatchObject({ phase: 'closed', reason: CloseReason.AllLockedOut });
     });
 
     it('まだ押せる人が居れば続行する', () => {
@@ -303,26 +314,28 @@ describe('出題の状態遷移', () => {
     );
 
     it.each(invalid)('%s で %s は拒否される', (_phase, _event, state, event) => {
-      expect(rejected(transition(state, event, context()))).toBe('invalidPhase');
+      expect(rejected(transition(state, event, context()))).toBe(RejectReason.InvalidPhase);
     });
 
     it('空の問題文を受け付けない', () => {
       const result = transition(idle(), { type: 'setQuestion', text: '　 ' }, context());
 
-      expect(rejected(result)).toBe('emptyQuestion');
+      expect(rejected(result)).toBe(RejectReason.EmptyQuestion);
     });
 
     it('全文公開後にさらに進めない', () => {
       const state = revealing({ revealedCount: 3 });
 
-      expect(rejected(transition(state, { type: 'revealNext' }, context()))).toBe('fullyRevealed');
+      expect(rejected(transition(state, { type: 'revealNext' }, context()))).toBe(
+        RejectReason.FullyRevealed,
+      );
     });
 
     it('全文公開前に猶予切れは起きない', () => {
       const state = revealing({ revealedCount: 1 });
 
       expect(rejected(transition(state, { type: 'graceExpired' }, context()))).toBe(
-        'notFullyRevealed',
+        RejectReason.NotFullyRevealed,
       );
     });
 
@@ -330,7 +343,7 @@ describe('出題の状態遷移', () => {
       const state = revealing({ lockedOut: [alice] });
 
       expect(rejected(transition(state, { type: 'buzz', playerId: alice }, context()))).toBe(
-        'lockedOut',
+        RejectReason.LockedOut,
       );
     });
 
@@ -339,14 +352,14 @@ describe('出題の状態遷移', () => {
 
       expect(first).toMatchObject({ buzzer: alice });
       expect(rejected(transition(first, { type: 'buzz', playerId: bob }, context()))).toBe(
-        'invalidPhase',
+        RejectReason.InvalidPhase,
       );
     });
 
     it('押した本人以外は回答できない', () => {
       const event: QuestionEvent = { type: 'submitAnswer', playerId: bob, text: '答え' };
 
-      expect(rejected(transition(buzzed(), event, context()))).toBe('notBuzzer');
+      expect(rejected(transition(buzzed(), event, context()))).toBe(RejectReason.NotBuzzer);
     });
 
     it('締め切りを過ぎた回答を受け付けない', () => {
@@ -354,7 +367,7 @@ describe('出題の状態遷移', () => {
 
       const result = transition(buzzed({ answerDeadline: 500 }), event, context());
 
-      expect(rejected(result)).toBe('deadlinePassed');
+      expect(rejected(result)).toBe(RejectReason.DeadlinePassed);
     });
 
     it('締め切りちょうどは受け付ける', () => {
@@ -368,7 +381,7 @@ describe('出題の状態遷移', () => {
     it('空の回答を受け付けない（無回答は時間切れで表す）', () => {
       const event: QuestionEvent = { type: 'submitAnswer', playerId: alice, text: '  ' };
 
-      expect(rejected(transition(buzzed(), event, context()))).toBe('emptyAnswer');
+      expect(rejected(transition(buzzed(), event, context()))).toBe(RejectReason.EmptyAnswer);
     });
   });
 });

@@ -20,17 +20,18 @@ const lockedOutSchema = z.array(playerIdSchema);
  * 問題が終わった理由。docs/spec/game-rules.md の `closed` へ入る4経路。
  * **shared/protocol の `question/end` と同じ4種**にしてある。
  */
-export const closeReasonSchema = z.enum([
+export const CloseReason = {
   /** 正解が出た */
-  'correct',
+  Correct: 'correct',
   /** 誤答で打ち切った */
-  'wrongAnswer',
+  WrongAnswer: 'wrongAnswer',
   /** 全文公開後、猶予時間内に誰も押さなかった */
-  'timeUp',
+  TimeUp: 'timeUp',
   /** 押せるプレイヤーが居なくなった */
-  'allLockedOut',
-]);
+  AllLockedOut: 'allLockedOut',
+} as const;
 
+export const closeReasonSchema = z.enum(CloseReason);
 export type CloseReason = z.infer<typeof closeReasonSchema>;
 
 export const questionStateSchema = z.discriminatedUnion('phase', [
