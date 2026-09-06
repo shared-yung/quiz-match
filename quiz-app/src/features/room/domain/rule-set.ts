@@ -13,15 +13,16 @@ import { z } from 'zod';
  */
 
 /** 誤答（無回答による時間切れを含む）が出たときの挙動。 */
-export const onWrongAnswerSchema = z.enum([
+export const OnWrongAnswer = {
   /** 誤答者をロックアウトし、問題文の公開を再開する */
-  'continue',
+  Continue: 'continue',
   /** その問題を打ち切る */
-  'endQuestion',
+  EndQuestion: 'endQuestion',
   /** ホストがその場でどちらかを選ぶ */
-  'hostDecides',
-]);
+  HostDecides: 'hostDecides',
+} as const;
 
+export const onWrongAnswerSchema = z.enum(OnWrongAnswer);
 export type OnWrongAnswer = z.infer<typeof onWrongAnswerSchema>;
 
 /** 得点の増減。誤答は負値にすると「お手つきペナルティ」になる。 */
@@ -43,7 +44,7 @@ export const winConditionSchema = z.discriminatedUnion('type', [
 export type WinCondition = z.infer<typeof winConditionSchema>;
 
 export const ruleSetSchema = z.object({
-  onWrongAnswer: onWrongAnswerSchema.default('continue'),
+  onWrongAnswer: onWrongAnswerSchema.default(OnWrongAnswer.Continue),
 
   /** 早押し後、回答を送るまでの制限時間 */
   answerTimeLimitMs: z.number().int().positive().default(10_000),
