@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { defaultRuleSet, ruleSetSchema } from '@/features/room/domain/rule-set';
+import { defaultRuleSet, OnWrongAnswer, ruleSetSchema } from '@/features/room/domain/rule-set';
 
 describe('RuleSet', () => {
   describe('既定値', () => {
     it('何も指定しなくても成立する', () => {
       const rules = defaultRuleSet();
 
-      expect(rules.onWrongAnswer).toBe('continue');
+      expect(rules.onWrongAnswer).toBe(OnWrongAnswer.Continue);
       expect(rules.answerTimeLimitMs).toBe(10_000);
       expect(rules.revealIntervalMs).toBe(200);
       expect(rules.postRevealGraceMs).toBe(5_000);
@@ -16,15 +16,15 @@ describe('RuleSet', () => {
     });
 
     it('一部だけ指定しても残りは既定値で埋まる', () => {
-      const rules = ruleSetSchema.parse({ onWrongAnswer: 'endQuestion' });
+      const rules = ruleSetSchema.parse({ onWrongAnswer: OnWrongAnswer.EndQuestion });
 
-      expect(rules.onWrongAnswer).toBe('endQuestion');
+      expect(rules.onWrongAnswer).toBe(OnWrongAnswer.EndQuestion);
       expect(rules.answerTimeLimitMs).toBe(10_000);
     });
   });
 
   describe('誤答時の挙動', () => {
-    it.each(['continue', 'endQuestion', 'hostDecides'] as const)('%s を受け付ける', (value) => {
+    it.each(Object.values(OnWrongAnswer))('%s を受け付ける', (value) => {
       expect(ruleSetSchema.parse({ onWrongAnswer: value }).onWrongAnswer).toBe(value);
     });
 
