@@ -11,6 +11,30 @@ import { playerIdSchema } from '@/shared/identity';
  * use-case が組み立てる内部の値なので、そちらは素の型で書く（transition.ts）。
  */
 
+/**
+ * 出題の進行状態。
+ *
+ * 判別子だが、分岐で比較する値なので enum 相当としてオブジェクトで定義する
+ * （docs/architecture/typescript-conventions.md）。shared/protocol の `Phase` とは
+ * 別物で、回線の型とドメインの型は独立させている（ADR 0002）。
+ */
+export const Phase = {
+  /** 問題が未設定 */
+  Idle: 'idle',
+  /** 問題文はあるが未公開 */
+  Ready: 'ready',
+  /** 1文字ずつ公開中 */
+  Revealing: 'revealing',
+  /** 押した人の回答待ち */
+  Buzzed: 'buzzed',
+  /** ホストの判定待ち */
+  Judging: 'judging',
+  /** この問題は終了 */
+  Closed: 'closed',
+} as const;
+
+export type Phase = (typeof Phase)[keyof typeof Phase];
+
 const questionIndexSchema = z.number().int().nonnegative();
 const questionTextSchema = z.string().min(1);
 const revealedCountSchema = z.number().int().nonnegative();
@@ -37,20 +61,20 @@ export type CloseReason = z.infer<typeof closeReasonSchema>;
 export const questionStateSchema = z.discriminatedUnion('phase', [
   /** 問題が未設定。`questionIndex` は次に出す問題の番号 */
   z.object({
-    phase: z.literal('idle'),
+    phase: z.literal(Phase.Idle),
     questionIndex: questionIndexSchema,
   }),
 
   /** 問題文はあるが未公開 */
   z.object({
-    phase: z.literal('ready'),
+    phase: z.literal(Phase.Ready),
     questionIndex: questionIndexSchema,
     text: questionTextSchema,
   }),
 
   /** 1文字ずつ公開中 */
   z.object({
-    phase: z.literal('revealing'),
+    phase: z.literal(Phase.Revealing),
     questionIndex: questionIndexSchema,
     text: questionTextSchema,
     revealedCount: revealedCountSchema,
@@ -59,7 +83,7 @@ export const questionStateSchema = z.discriminatedUnion('phase', [
 
   /** 押した人の回答待ち。締め切りは**ホストの時計での絶対時刻** */
   z.object({
-    phase: z.literal('buzzed'),
+    phase: z.literal(Phase.Buzzed),
     questionIndex: questionIndexSchema,
     text: questionTextSchema,
     revealedCount: revealedCountSchema,
@@ -70,7 +94,7 @@ export const questionStateSchema = z.discriminatedUnion('phase', [
 
   /** ホストの判定待ち。`answer` が `null` なら**時間切れの無回答** */
   z.object({
-    phase: z.literal('judging'),
+    phase: z.literal(Phase.Judging),
     questionIndex: questionIndexSchema,
     text: questionTextSchema,
     revealedCount: revealedCountSchema,
@@ -81,7 +105,7 @@ export const questionStateSchema = z.discriminatedUnion('phase', [
 
   /** この問題は終了 */
   z.object({
-    phase: z.literal('closed'),
+    phase: z.literal(Phase.Closed),
     questionIndex: questionIndexSchema,
     text: questionTextSchema,
     reason: closeReasonSchema,
@@ -89,16 +113,15 @@ export const questionStateSchema = z.discriminatedUnion('phase', [
 ]);
 
 export type QuestionState = z.infer<typeof questionStateSchema>;
-export type Phase = QuestionState['phase'];
 
 type StateOf<P extends Phase> = Extract<QuestionState, { phase: P }>;
 
-export type IdleState = StateOf<'idle'>;
-export type ReadyState = StateOf<'ready'>;
-export type RevealingState = StateOf<'revealing'>;
-export type BuzzedState = StateOf<'buzzed'>;
-export type JudgingState = StateOf<'judging'>;
-export type ClosedState = StateOf<'closed'>;
+export type IdleState = StateOf<typeof Phase.Idle>;
+export type ReadyState = StateOf<typeof Phase.Ready>;
+export type RevealingState = StateOf<typeof Phase.Revealing>;
+export type BuzzedState = StateOf<typeof Phase.Buzzed>;
+export type JudgingState = StateOf<typeof Phase.Judging>;
+export type ClosedState = StateOf<typeof Phase.Closed>;
 
 /**
  * 問題文をコードポイントで分解する。
@@ -121,6 +144,6 @@ export const isFullyRevealed = (state: RevealingState | BuzzedState | JudgingSta
 
 /** 最初の状態。 */
 export const initialQuestionState = (questionIndex = 0): IdleState => ({
-  phase: 'idle',
+  phase: Phase.Idle,
   questionIndex,
 });

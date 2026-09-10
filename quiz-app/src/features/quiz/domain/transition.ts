@@ -1,7 +1,9 @@
+import { ExhaustiveError } from '@/shared/exhaustive-error';
 import type { PlayerId } from '@/shared/identity';
 import {
   CloseReason,
   isFullyRevealed,
+  Phase,
   type BuzzedState,
   type JudgingState,
   type QuestionState,
@@ -58,25 +60,46 @@ export const WrongAnswerChoice = {
 
 export type WrongAnswerChoice = (typeof WrongAnswerChoice)[keyof typeof WrongAnswerChoice];
 
-export type QuestionEvent =
+/**
+ * 状態機械が受け付けるイベントの種別。
+ *
+ * 判別子だが、switch で分岐する値なので enum 相当としてオブジェクトで定義する
+ * （docs/architecture/typescript-conventions.md）。
+ */
+export const QuestionEventType = {
   /** ホストが問題文を入力した */
-  | { type: 'setQuestion'; text: string }
+  SetQuestion: 'setQuestion',
   /** ホストが公開を開始した */
-  | { type: 'startReveal' }
+  StartReveal: 'startReveal',
   /** 公開間隔が来た。1文字進める */
-  | { type: 'revealNext' }
+  RevealNext: 'revealNext',
   /** プレイヤーが早押しした */
-  | { type: 'buzz'; playerId: PlayerId }
+  Buzz: 'buzz',
   /** 押した人から回答が届いた */
-  | { type: 'submitAnswer'; playerId: PlayerId; text: string }
+  SubmitAnswer: 'submitAnswer',
   /** 回答制限時間が切れた。無回答として扱う */
-  | { type: 'answerTimeout' }
-  /** ホストが正誤を判定した。`hostDecides` のときは choice が要る */
-  | { type: 'judge'; correct: boolean; choice?: WrongAnswerChoice }
+  AnswerTimeout: 'answerTimeout',
+  /** ホストが正誤を判定した */
+  Judge: 'judge',
   /** 全文公開後の猶予時間が切れた */
-  | { type: 'graceExpired' }
+  GraceExpired: 'graceExpired',
   /** 次の問題へ */
-  | { type: 'nextQuestion' };
+  NextQuestion: 'nextQuestion',
+} as const;
+
+export type QuestionEventType = (typeof QuestionEventType)[keyof typeof QuestionEventType];
+
+export type QuestionEvent =
+  | { type: typeof QuestionEventType.SetQuestion; text: string }
+  | { type: typeof QuestionEventType.StartReveal }
+  | { type: typeof QuestionEventType.RevealNext }
+  | { type: typeof QuestionEventType.Buzz; playerId: PlayerId }
+  | { type: typeof QuestionEventType.SubmitAnswer; playerId: PlayerId; text: string }
+  | { type: typeof QuestionEventType.AnswerTimeout }
+  /** `hostDecides` のときは choice が要る */
+  | { type: typeof QuestionEventType.Judge; correct: boolean; choice?: WrongAnswerChoice }
+  | { type: typeof QuestionEventType.GraceExpired }
+  | { type: typeof QuestionEventType.NextQuestion };
 
 /** 遷移を受け付けなかった理由。 */
 export const RejectReason = {
@@ -114,7 +137,7 @@ const noPlayersLeft = (players: readonly PlayerId[], lockedOut: readonly PlayerI
 
 /** 回答（または無回答）を受けて判定待ちへ。押した人がそのまま回答者になる。 */
 const toJudging = (state: BuzzedState, answer: string | null): JudgingState => ({
-  phase: 'judging',
+  phase: Phase.Judging,
   questionIndex: state.questionIndex,
   text: state.text,
   revealedCount: state.revealedCount,
@@ -137,7 +160,7 @@ const judgeWrong = (
 
   if (behaviour === WrongAnswerChoice.EndQuestion) {
     return accept({
-      phase: 'closed',
+      phase: Phase.Closed,
       questionIndex: state.questionIndex,
       text: state.text,
       reason: CloseReason.WrongAnswer,
@@ -151,7 +174,7 @@ const judgeWrong = (
   // onWrongAnswer が continue のときだけ起きる経路で、見落としやすい
   if (noPlayersLeft(players, lockedOut)) {
     return accept({
-      phase: 'closed',
+      phase: Phase.Closed,
       questionIndex: state.questionIndex,
       text: state.text,
       reason: CloseReason.AllLockedOut,
@@ -159,7 +182,7 @@ const judgeWrong = (
   }
 
   return accept({
-    phase: 'revealing',
+    phase: Phase.Revealing,
     questionIndex: state.questionIndex,
     text: state.text,
     // 公開済みの文字数は維持する。**続きから再開する**
@@ -180,43 +203,43 @@ export const transition = (
   context: TransitionContext,
 ): TransitionResult => {
   switch (event.type) {
-    case 'setQuestion': {
-      if (state.phase !== 'idle') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.SetQuestion: {
+      if (state.phase !== Phase.Idle) return reject(RejectReason.InvalidPhase);
 
       const text = event.text.trim();
       if (text === '') return reject(RejectReason.EmptyQuestion);
 
-      return accept({ phase: 'ready', questionIndex: state.questionIndex, text });
+      return accept({ phase: Phase.Ready, questionIndex: state.questionIndex, text });
     }
 
-    case 'startReveal': {
-      if (state.phase !== 'ready') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.StartReveal: {
+      if (state.phase !== Phase.Ready) return reject(RejectReason.InvalidPhase);
 
-      return accept({ ...state, phase: 'revealing', revealedCount: 0, lockedOut: [] });
+      return accept({ ...state, phase: Phase.Revealing, revealedCount: 0, lockedOut: [] });
     }
 
-    case 'revealNext': {
-      if (state.phase !== 'revealing') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.RevealNext: {
+      if (state.phase !== Phase.Revealing) return reject(RejectReason.InvalidPhase);
       if (isFullyRevealed(state)) return reject(RejectReason.FullyRevealed);
 
       return accept({ ...state, revealedCount: state.revealedCount + 1 });
     }
 
-    case 'buzz': {
+    case QuestionEventType.Buzz: {
       // 2人目以降の押下はここで落ちる。**先着1名は状態の形から出る**
-      if (state.phase !== 'revealing') return reject(RejectReason.InvalidPhase);
+      if (state.phase !== Phase.Revealing) return reject(RejectReason.InvalidPhase);
       if (state.lockedOut.includes(event.playerId)) return reject(RejectReason.LockedOut);
 
       return accept({
         ...state,
-        phase: 'buzzed',
+        phase: Phase.Buzzed,
         buzzer: event.playerId,
         answerDeadline: context.now + context.rules.answerTimeLimitMs,
       });
     }
 
-    case 'submitAnswer': {
-      if (state.phase !== 'buzzed') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.SubmitAnswer: {
+      if (state.phase !== Phase.Buzzed) return reject(RejectReason.InvalidPhase);
       if (event.playerId !== state.buzzer) return reject(RejectReason.NotBuzzer);
       if (context.now > state.answerDeadline) return reject(RejectReason.DeadlinePassed);
 
@@ -226,19 +249,19 @@ export const transition = (
       return accept(toJudging(state, text));
     }
 
-    case 'answerTimeout': {
-      if (state.phase !== 'buzzed') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.AnswerTimeout: {
+      if (state.phase !== Phase.Buzzed) return reject(RejectReason.InvalidPhase);
 
       // 時間切れは無回答。誤答と同じ経路をたどる
       return accept(toJudging(state, null));
     }
 
-    case 'judge': {
-      if (state.phase !== 'judging') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.Judge: {
+      if (state.phase !== Phase.Judging) return reject(RejectReason.InvalidPhase);
 
       if (event.correct) {
         return accept({
-          phase: 'closed',
+          phase: Phase.Closed,
           questionIndex: state.questionIndex,
           text: state.text,
           reason: CloseReason.Correct,
@@ -248,22 +271,27 @@ export const transition = (
       return judgeWrong(state, event.choice, context);
     }
 
-    case 'graceExpired': {
-      if (state.phase !== 'revealing') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.GraceExpired: {
+      if (state.phase !== Phase.Revealing) return reject(RejectReason.InvalidPhase);
       if (!isFullyRevealed(state)) return reject(RejectReason.NotFullyRevealed);
 
       return accept({
-        phase: 'closed',
+        phase: Phase.Closed,
         questionIndex: state.questionIndex,
         text: state.text,
         reason: CloseReason.TimeUp,
       });
     }
 
-    case 'nextQuestion': {
-      if (state.phase !== 'closed') return reject(RejectReason.InvalidPhase);
+    case QuestionEventType.NextQuestion: {
+      if (state.phase !== Phase.Closed) return reject(RejectReason.InvalidPhase);
 
-      return accept({ phase: 'idle', questionIndex: state.questionIndex + 1 });
+      return accept({ phase: Phase.Idle, questionIndex: state.questionIndex + 1 });
     }
+
+    default:
+      // case を書き漏らすと event の型が never に絞られず、ここで typecheck が落ちる。
+      // 実行時に型を外れた値が来た場合も、黙って undefined を返さずに止める
+      throw new ExhaustiveError(event);
   }
 };
