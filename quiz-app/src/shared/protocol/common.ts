@@ -95,6 +95,16 @@ export const OnWrongAnswer = {
 export const onWrongAnswerSchema = z.enum(OnWrongAnswer);
 export type OnWrongAnswer = z.infer<typeof onWrongAnswerSchema>;
 
+/** 勝利条件の種別。 */
+export const WinConditionType = {
+  /** 指定得点に最初に到達したプレイヤーの勝ち */
+  FirstTo: 'firstTo',
+  /** 全問終了時点の最高得点者の勝ち */
+  AllQuestions: 'allQuestions',
+} as const;
+
+export type WinConditionType = (typeof WinConditionType)[keyof typeof WinConditionType];
+
 /**
  * 回線上の RuleSet。
  *
@@ -115,8 +125,11 @@ export const ruleSetPayloadSchema = z.object({
     wrong: z.number().int(),
   }),
   winCondition: z.discriminatedUnion('type', [
-    z.object({ type: z.literal('firstTo'), points: z.number().int().positive() }),
-    z.object({ type: z.literal('allQuestions') }),
+    z.object({
+      type: z.literal(WinConditionType.FirstTo),
+      points: z.number().int().positive(),
+    }),
+    z.object({ type: z.literal(WinConditionType.AllQuestions) }),
   ]),
   maxPlayers: z.number().int().min(2).max(32),
 });

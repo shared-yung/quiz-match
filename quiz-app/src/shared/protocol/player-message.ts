@@ -11,15 +11,27 @@ import { displayNameSchema } from './common';
  * を特定する。含めると他人になりすませてしまう。
  */
 
+/** メッセージ種別。回線上の `type` の値で、判別に使う。 */
+export const PlayerMessageType = {
+  /** 参加要求 */
+  Join: 'join',
+  /** 早押しボタンの押下 */
+  Buzz: 'buzz',
+  /** 回答の送信 */
+  Answer: 'answer',
+} as const;
+
+export type PlayerMessageType = (typeof PlayerMessageType)[keyof typeof PlayerMessageType];
+
 /** 接続直後の参加要求。 */
 export const joinMessageSchema = z.object({
-  type: z.literal('join'),
+  type: z.literal(PlayerMessageType.Join),
   name: displayNameSchema,
 });
 
 /** 早押しボタンの押下。ペイロードは持たない。順序はホストの受信順で決まる。 */
 export const buzzMessageSchema = z.object({
-  type: z.literal('buzz'),
+  type: z.literal(PlayerMessageType.Buzz),
 });
 
 /**
@@ -29,7 +41,7 @@ export const buzzMessageSchema = z.object({
  * 改造クライアントから巨大なペイロードが来る経路になるため。
  */
 export const answerMessageSchema = z.object({
-  type: z.literal('answer'),
+  type: z.literal(PlayerMessageType.Answer),
   text: z.string().trim().min(1).max(200),
 });
 
@@ -45,6 +57,3 @@ export const playerMessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export type PlayerMessage = z.infer<typeof playerMessageSchema>;
-
-/** メッセージ種別の判別に使う値。 */
-export type PlayerMessageType = PlayerMessage['type'];

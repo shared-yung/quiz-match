@@ -6,6 +6,8 @@ import {
   parseHostMessage,
   parsePlayerMessage,
 } from '@/shared/protocol/codec';
+import { HostMessageType } from '@/shared/protocol/host-message';
+import { PlayerMessageType } from '@/shared/protocol/player-message';
 
 describe('コーデック', () => {
   describe('破棄', () => {
@@ -13,9 +15,9 @@ describe('コーデック', () => {
       ['壊れた JSON', '{'],
       ['空文字', ''],
       ['JSON だが null', 'null'],
-      ['JSON だが配列', '[{"type":"buzz"}]'],
+      ['JSON だが配列', JSON.stringify([{ type: PlayerMessageType.Buzz }])],
       ['未知の種別', '{"type":"question/skip"}'],
-      ['必須項目が欠けている', '{"type":"question/char","position":0}'],
+      ['必須項目が欠けている', JSON.stringify({ type: HostMessageType.QuestionChar, position: 0 })],
     ])('%s は undefined になる', (_name, raw) => {
       expect(decodeHostMessage(raw)).toBeUndefined();
       expect(decodePlayerMessage(raw)).toBeUndefined();
@@ -26,21 +28,24 @@ describe('コーデック', () => {
     });
 
     it('相手方向のメッセージは通さない', () => {
-      expect(decodeHostMessage('{"type":"buzz"}')).toBeUndefined();
-      expect(decodePlayerMessage('{"type":"score/update","scores":[]}')).toBeUndefined();
+      expect(decodeHostMessage(JSON.stringify({ type: PlayerMessageType.Buzz }))).toBeUndefined();
+      expect(
+        decodePlayerMessage(JSON.stringify({ type: HostMessageType.ScoreUpdate, scores: [] })),
+      ).toBeUndefined();
     });
   });
 
   describe('検証を通ったとき', () => {
     it('型の付いたメッセージが返る', () => {
-      const message = decodeHostMessage('{"type":"question/char","position":2,"char":"ズ"}');
+      const payload = { type: HostMessageType.QuestionChar, position: 2, char: 'ズ' };
+      const message = decodeHostMessage(JSON.stringify(payload));
 
-      expect(message).toEqual({ type: 'question/char', position: 2, char: 'ズ' });
-      expect(message?.type).toBe('question/char');
+      expect(message).toEqual(payload);
+      expect(message?.type).toBe(HostMessageType.QuestionChar);
     });
 
     it('encode → decode で往復する', () => {
-      const original = { type: 'answer', text: '答え' } as const;
+      const original = { type: PlayerMessageType.Answer, text: '答え' } as const;
 
       expect(decodePlayerMessage(encodeMessage(original))).toEqual(original);
     });
@@ -48,8 +53,10 @@ describe('コーデック', () => {
 
   describe('parse', () => {
     it('文字列を経由せずに検証できる', () => {
-      expect(parsePlayerMessage({ type: 'buzz' })).toEqual({ type: 'buzz' });
-      expect(parseHostMessage({ type: 'buzz' })).toBeUndefined();
+      const buzz = { type: PlayerMessageType.Buzz };
+
+      expect(parsePlayerMessage(buzz)).toEqual(buzz);
+      expect(parseHostMessage(buzz)).toBeUndefined();
     });
 
     it('undefined を渡しても落ちない', () => {

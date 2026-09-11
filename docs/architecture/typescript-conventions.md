@@ -4,7 +4,7 @@
 
 ## enum 相当の値
 
-**C# の enum に相当するもの（名前の付いた閉じた値の集合）が必要なときは、`as const` のオブジェクトリテラルで定義する。**
+**C# の enum に相当するもの（名前の付いた閉じた値の集合）が必要なときは、`as const` のオブジェクトリテラルで定義する。参照は常にオブジェクト経由にする。**
 
 ```ts
 export const QuestionEndReason = {
@@ -31,10 +31,32 @@ export type QuestionEndReason = z.infer<typeof questionEndReasonSchema>;
 - TypeScript の `enum` 宣言 → 使わない
 - `z.enum(['a', 'b'])` の配列リテラル → オブジェクトを定義して渡す
 - 名前で参照したい文字列・数値の集合を、素のユニオン型だけで表しているもの
+- **判別可能ユニオンの判別子も含む。** 判別子は分岐のためにある値で、分岐に文字列を直接書けばマジックストリングになる
 
-### 対象にしないもの
+### 判別子の書き方
 
-**判別可能ユニオンの判別子。** `z.literal('room/state')` や `{ type: 'buzz' }` は値の集合ではなく型の識別子で、オブジェクトに畳むと分岐が読めなくなる。
+判別子の値もオブジェクトで定義し、スキーマ・型・比較・分岐のすべてから参照する。
+
+```ts
+export const Phase = { Idle: 'idle', Ready: 'ready' /* … */ } as const;
+export type Phase = (typeof Phase)[keyof typeof Phase];
+
+// スキーマ
+z.object({ phase: z.literal(Phase.Idle), questionIndex: z.number() });
+
+// 型
+type BuzzEvent = { type: typeof QuestionEventType.Buzz; playerId: PlayerId };
+
+// 比較と分岐
+if (state.phase !== Phase.Revealing) return;
+switch (event.type) {
+  case QuestionEventType.Buzz: …
+}
+```
+
+`as const` で各キーがリテラル型を保つので、**判別可能ユニオンの絞り込みはそのまま効く**（`state.phase === Phase.Revealing` の後では `state` が公開中の状態に絞られる）。
+
+未知の値を弾くことが目的のテストだけは、未定義の値を文字列でベタ書きしてよい。それ自体が検証の対象だから。
 
 ### なぜオブジェクトなのか
 
@@ -42,15 +64,64 @@ export type QuestionEndReason = z.infer<typeof questionEndReasonSchema>;
 - **素のユニオン型だけだと値に名前が付かない。** `'wrongAnswer'` という文字列がコード中に散り、C# の `QuestionEndReason.WrongAnswer` に当たる書き方ができない。綴りの誤りは型で止まるが、**意味は読み手が覚えているしかない**
 - オブジェクトなら、値の参照・列挙（`Object.values`）・zod への受け渡しが**1つの定義から出る**。テストで選択肢を列挙するときも、配列をベタ書きせずに済む
 
-### どこまで機械的に強制しているか
+## switch の網羅
 
-`packages/eslint-config` の `no-restricted-syntax` で落とせるのは次の3つだけ。
+**switch には default を必ず書く。** 判別可能ユニオンや enum 相当で分岐する switch の default では `ExhaustiveError` を投げる。
 
-| 形                                                     | 落ちる |
-| ------------------------------------------------------ | ------ |
-| `enum Foo {}`                                          | ✅     |
-| `z.enum(['a', 'b'])`                                   | ✅     |
-| `z.enum(['a', 'b'] as const)`                          | ✅     |
-| `type Foo = 'a' \| 'b'`（enum 相当なのに素のユニオン） | ❌     |
+```ts
+switch (event.type) {
+  case QuestionEventType.SetQuestion: …
+  case QuestionEventType.Buzz: …
+  default:
+    throw new ExhaustiveError(event);
+}
+```
 
-**最後の1つは検出できない。** 判別子として正当なユニオンと区別がつかないため。ここは規約に委ねている。**強制していないものを強制しているつもりにならないこと。**
+`ExhaustiveError` は `src/shared/exhaustive-error.ts` に置く。
+
+```ts
+export class ExhaustiveError extends Error {
+  constructor(value: never, message = `Unhandled value: ${JSON.stringify(value)}`) {
+    super(message);
+    this.name = 'ExhaustiveError';
+  }
+}
+```
+
+**引数を `never` にしてあるのが本体。** すべての case を書き切っていれば default に届く値の型は `never` に絞られる。case が1つでも漏れると、そこに残った型が `never` に代入できず **typecheck で落ちる**。実行時に型を外れた値が来た場合も、黙って `undefined` を返さず例外で止まる。
+
+ESLint の `default-case` は `// no default` コメントで回避できるが、**判別可能ユニオンや enum 相当の switch では使わない。** 網羅チェックごと消えるため。
+
+## どこまで機械的に強制しているか
+
+`packages/eslint-config` の `no-restricted-syntax` と `default-case`、および typecheck で次を落とす。
+
+| 形                                                     | 落ちる | 仕組み                                         |
+| ------------------------------------------------------ | ------ | ---------------------------------------------- |
+| `enum Foo {}`                                          | ✅     | `no-restricted-syntax`                         |
+| `z.enum(['a', 'b'])` / `z.enum([...] as const)`        | ✅     | `no-restricted-syntax`                         |
+| `z.literal('x')`                                       | ✅     | `no-restricted-syntax`                         |
+| `case 'x':`                                            | ✅     | `no-restricted-syntax`                         |
+| `x === 'x'` / `x !== 'x'`                              | ✅     | `no-restricted-syntax`                         |
+| default の無い switch                                  | ✅     | `default-case`                                 |
+| case の漏れ                                            | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |
+| 型定義側の `{ type: 'x' }`                             | ❌     | 規約のみ                                       |
+| `type Foo = 'a' \| 'b'`（enum 相当なのに素のユニオン） | ❌     | 規約のみ                                       |
+| default はあるが `ExhaustiveError` を投げていない      | ❌     | 規約のみ                                       |
+
+**意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）と空文字との比較（`x === ''`）。
+
+**検出できないものが3つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。**強制していないものを強制しているつもりにならないこと。**
+
+**値の集合を外部が持つ比較は、理由つきの disable コメントで除外する。** 例: Quasar が生成する `src/router/index.ts` の `import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history'`。取りうる値を決めているのは Quasar で、こちらで定数を定義しても何も保証しない。
+
+```ts
+const createHistory = import.meta.env.QUASAR_SERVER
+  ? createMemoryHistory
+  : // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは Quasar 側
+    import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history'
+    ? createWebHistory
+    : createWebHashHistory;
+```
+
+三項演算子の途中に置くコメントは、Prettier が `:` の直後へ移す。`eslint-disable-next-line` は次の行に効くので、この位置のままで働く。

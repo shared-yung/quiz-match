@@ -33,12 +33,20 @@ export const scoringSchema = z.object({
 
 export type Scoring = z.infer<typeof scoringSchema>;
 
+/** 勝利条件の種別。 */
+export const WinConditionType = {
+  /** 指定得点に最初に到達したプレイヤーの勝ち */
+  FirstTo: 'firstTo',
+  /** 全問終了時点の最高得点者の勝ち */
+  AllQuestions: 'allQuestions',
+} as const;
+
+export type WinConditionType = (typeof WinConditionType)[keyof typeof WinConditionType];
+
 /** 勝利条件。 */
 export const winConditionSchema = z.discriminatedUnion('type', [
-  /** 指定得点に最初に到達したプレイヤーの勝ち */
-  z.object({ type: z.literal('firstTo'), points: z.number().int().positive() }),
-  /** 全問終了時点の最高得点者の勝ち */
-  z.object({ type: z.literal('allQuestions') }),
+  z.object({ type: z.literal(WinConditionType.FirstTo), points: z.number().int().positive() }),
+  z.object({ type: z.literal(WinConditionType.AllQuestions) }),
 ]);
 
 export type WinCondition = z.infer<typeof winConditionSchema>;
@@ -57,7 +65,7 @@ export const ruleSetSchema = z.object({
 
   scoring: scoringSchema.default({ correct: 1, wrong: 0 }),
 
-  winCondition: winConditionSchema.default({ type: 'firstTo', points: 5 }),
+  winCondition: winConditionSchema.default({ type: WinConditionType.FirstTo, points: 5 }),
 
   maxPlayers: z.number().int().min(2).max(32).default(8),
 });
