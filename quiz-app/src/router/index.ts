@@ -20,7 +20,8 @@ import routes from './routes';
 export default defineRouter((/* { store, ssrContext } */) => {
   const createHistory = import.meta.env.QUASAR_SERVER
     ? createMemoryHistory
-    : import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history'
+    : // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは Quasar 側
+      import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history'
       ? createWebHistory
       : createWebHashHistory;
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { defaultRuleSet, OnWrongAnswer, ruleSetSchema } from '@/features/room/domain/rule-set';
+import {
+  defaultRuleSet,
+  OnWrongAnswer,
+  ruleSetSchema,
+  WinConditionType,
+} from '@/features/room/domain/rule-set';
 
 describe('RuleSet', () => {
   describe('既定値', () => {
@@ -11,7 +16,7 @@ describe('RuleSet', () => {
       expect(rules.revealIntervalMs).toBe(200);
       expect(rules.postRevealGraceMs).toBe(5_000);
       expect(rules.scoring).toEqual({ correct: 1, wrong: 0 });
-      expect(rules.winCondition).toEqual({ type: 'firstTo', points: 5 });
+      expect(rules.winCondition).toEqual({ type: WinConditionType.FirstTo, points: 5 });
       expect(rules.maxPlayers).toBe(8);
     });
 
@@ -66,16 +71,18 @@ describe('RuleSet', () => {
 
   describe('勝利条件', () => {
     it('firstTo は正の得点を要求する', () => {
-      expect(
-        ruleSetSchema.parse({ winCondition: { type: 'firstTo', points: 3 } }).winCondition,
-      ).toEqual({ type: 'firstTo', points: 3 });
-      expect(() => ruleSetSchema.parse({ winCondition: { type: 'firstTo', points: 0 } })).toThrow();
+      const firstTo = (points: number) => ({ type: WinConditionType.FirstTo, points });
+
+      expect(ruleSetSchema.parse({ winCondition: firstTo(3) }).winCondition).toEqual(firstTo(3));
+      expect(() => ruleSetSchema.parse({ winCondition: firstTo(0) })).toThrow();
     });
 
     it('allQuestions は追加の指定を要らない', () => {
-      expect(ruleSetSchema.parse({ winCondition: { type: 'allQuestions' } }).winCondition).toEqual({
-        type: 'allQuestions',
-      });
+      const allQuestions = { type: WinConditionType.AllQuestions };
+
+      expect(ruleSetSchema.parse({ winCondition: allQuestions }).winCondition).toEqual(
+        allQuestions,
+      );
     });
 
     it('未知の type を拒否する', () => {
