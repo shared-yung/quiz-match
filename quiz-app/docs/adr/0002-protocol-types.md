@@ -63,3 +63,11 @@
 
 - **変換のコードが機械的な写経ばかりになり、ズレの検知だけが目的になったとき。** その時点で選択肢 2（共有語彙を `shared` へ移す）を再評価する
 - プロトコルのバージョニングが必要になったとき。回線側とドメイン側が**別々に進化する**ことになり、この決定の前提はむしろ強まる
+
+## 追記（2026-09-06 / [#9](https://github.com/shared-yung/quiz-match/issues/9)）
+
+`PlayerId` を `features/room/domain` から `src/shared/identity.ts` へ移した。出題の状態機械がロックアウト集合と早押ししたプレイヤーを状態に持つ必要があり、`boundaries` は他 feature の domain を見せないため。`features/room/domain/player.ts` は shared から再エクスポートしていて、room の公開 API は変わっていない。
+
+**移したのは id だけで、`Player` / `Room` / `RuleSet` は room に残している。** 上の選択肢 2（共有語彙を `shared` へ移す）を採ったわけではない。**この ADR の決定は維持する。**
+
+回線上の識別子（`playerRefSchema`）は今もブランド無しの文字列のままで、ドメインの `PlayerId` への変換は net の infrastructure が行う。本題である「回線の型とドメインの型を独立させる」は変わっていない。

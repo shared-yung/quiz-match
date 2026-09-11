@@ -1,7 +1,11 @@
 import { z } from 'zod';
+import { playerIdSchema } from '@/shared/identity';
 
-export const playerIdSchema = z.string().min(1).brand<'PlayerId'>();
-export type PlayerId = z.infer<typeof playerIdSchema>;
+/**
+ * プレイヤーの識別子は quiz feature でも使うため `shared/identity` にある。
+ * room の公開 API は変えたくないので、ここから再エクスポートする。
+ */
+export { playerIdSchema, type PlayerId } from '@/shared/identity';
 
 export const playerSchema = z.object({
   id: playerIdSchema,
