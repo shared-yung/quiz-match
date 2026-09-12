@@ -28,6 +28,9 @@ export const displayNameSchema = z.string().trim().min(1).max(20);
  *
  * 締め切りはすべてこの形で通知する。プレイヤー側は**表示にのみ使い**、判定には
  * 使わない（docs/spec/p2p-protocol.md）。
+ *
+ * ドメインの `EpochMs`（`src/shared/time.ts`）とは別物。検証を通っただけの数値で、
+ * 変換は net の infrastructure が行う（docs/adr/0002-protocol-types.md）。
  */
 export const timestampSchema = z.number().int().nonnegative();
 
