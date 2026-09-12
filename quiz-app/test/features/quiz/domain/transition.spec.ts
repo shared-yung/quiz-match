@@ -22,14 +22,18 @@ import {
 } from '@/features/quiz/domain/transition';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import { playerIdSchema } from '@/shared/identity';
+import { epochMsSchema } from '@/shared/time';
 
 const alice = playerIdSchema.parse('alice');
 const bob = playerIdSchema.parse('bob');
 
+/** ホストの時計での時刻。 */
+const at = (ms: number) => epochMsSchema.parse(ms);
+
 const context = (over: Partial<TransitionContext> = {}): TransitionContext => ({
   rules: { onWrongAnswer: OnWrongAnswer.Continue, answerTimeLimitMs: 10_000 },
   players: [alice, bob],
-  now: 1_000,
+  now: at(1_000),
   ...over,
 });
 
@@ -59,7 +63,7 @@ const buzzed = (over: Partial<BuzzedState> = {}): BuzzedState => ({
   ...revealing(),
   phase: Phase.Buzzed,
   buzzer: alice,
-  answerDeadline: 11_000,
+  answerDeadline: at(11_000),
   ...over,
 });
 
@@ -136,7 +140,7 @@ describe('出題の状態遷移', () => {
         phase: Phase.Buzzed,
         buzzer: bob,
         // 締め切りはホストの時計での絶対時刻
-        answerDeadline: 11_000,
+        answerDeadline: at(11_000),
         revealedCount: 2,
       });
     });
@@ -403,7 +407,7 @@ describe('出題の状態遷移', () => {
         text: '答え',
       };
 
-      const result = transition(buzzed({ answerDeadline: 500 }), event, context());
+      const result = transition(buzzed({ answerDeadline: at(500) }), event, context());
 
       expect(rejected(result)).toBe(RejectReason.DeadlinePassed);
     });
@@ -415,7 +419,7 @@ describe('出題の状態遷移', () => {
         text: '答え',
       };
 
-      const result = transition(buzzed({ answerDeadline: 1_000 }), event, context());
+      const result = transition(buzzed({ answerDeadline: at(1_000) }), event, context());
 
       expect(accepted(result).phase).toBe(Phase.Judging);
     });

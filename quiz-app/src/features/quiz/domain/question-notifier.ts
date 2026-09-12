@@ -1,4 +1,5 @@
 import type { PlayerId } from '@/shared/identity';
+import type { EpochMs } from '@/shared/time';
 import type { QuestionState } from './question-state';
 
 /**
@@ -24,7 +25,7 @@ export type BuzzRejection = (typeof BuzzRejection)[keyof typeof BuzzRejection];
  */
 export type QuestionNotifier = {
   /** 早押しを採用した。締め切りはホストの時計での絶対時刻 */
-  buzzAccepted: (playerId: PlayerId, answerDeadline: number) => void;
+  buzzAccepted: (playerId: PlayerId, answerDeadline: EpochMs) => void;
   /** 押下を却下した。**本人にだけ**知らせる */
   buzzRejected: (playerId: PlayerId, reason: BuzzRejection) => void;
   /** 状態が変わった。時間切れのように、呼び出しの外で起きる遷移もここで知る */

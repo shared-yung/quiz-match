@@ -11,6 +11,7 @@ import {
 import { OnWrongAnswer } from '@/features/quiz/domain/transition';
 import { createQuestionSession } from '@/features/quiz/use-case/question-session';
 import { playerIdSchema } from '@/shared/identity';
+import { addMs, epochMsSchema } from '@/shared/time';
 import { createRecordingNotifier } from './question-notifier.fake';
 import { createFakeTimer } from './timer.fake';
 
@@ -18,9 +19,9 @@ const alice = playerIdSchema.parse('alice');
 const bob = playerIdSchema.parse('bob');
 const carol = playerIdSchema.parse('carol');
 
-const start = 1_000;
+const start = epochMsSchema.parse(1_000);
 const answerTimeLimitMs = 10_000;
-const deadline = start + answerTimeLimitMs;
+const deadline = addMs(start, answerTimeLimitMs);
 
 const revealing = (over: Partial<RevealingState> = {}): RevealingState => ({
   phase: Phase.Revealing,
