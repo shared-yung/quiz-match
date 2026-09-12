@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import comments from '@eslint-community/eslint-plugin-eslint-comments';
 
 /**
  * `no-restricted-syntax` で落とす形。
@@ -62,10 +63,23 @@ export const base = [
       sourceType: 'module',
       globals: { ...globals.browser, ...globals.es2021 },
     },
+    // 使われていない disable も落とす。コードを直して要らなくなった disable を残さない
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    plugins: { '@eslint-community/eslint-comments': comments },
     rules: {
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+
+      // ルールを外すなら理由を書かせる（`// eslint-disable-next-line <rule> -- 理由`）
+      '@eslint-community/eslint-comments/require-description': 'error',
+
+      // 宣言マージの `interface X extends Y {}` は正当な形なので通す。
+      // 中身の無い `interface X {}` は .d.ts でだけ許す（下の files: ['**/*.d.ts']）
+      '@typescript-eslint/no-empty-object-type': [
+        'error',
+        { allowInterfaces: 'with-single-extends' },
+      ],
 
       'no-restricted-syntax': ['error', ...restrictedSyntax],
 

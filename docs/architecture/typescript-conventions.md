@@ -125,3 +125,23 @@ const createHistory = import.meta.env.QUASAR_SERVER
 ```
 
 三項演算子の途中に置くコメントは、Prettier が `:` の直後へ移す。`eslint-disable-next-line` は次の行に効くので、この位置のままで働く。
+
+## eslint-disable
+
+**ルールを外すときは、`--` の後に理由を書く。** 理由の無い disable は lint で落ちる（`@eslint-community/eslint-comments/require-description`）。
+
+```ts
+// eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは Quasar 側
+```
+
+- **行単位（`eslint-disable-next-line`）で外す。** ファイル全体の `/* eslint-disable */` は、後から書き足した行まで黙って対象になる
+- **使われていない disable も落ちる**（`reportUnusedDisableDirectives: 'error'`）。コードを直して要らなくなった disable は残らない
+- **外す前に、外さずに済む形を探す。** 例: 宣言マージの `interface X extends Y {}` は disable 無しで書ける（`no-empty-object-type` の `allowInterfaces: 'with-single-extends'`）。中身の無い `interface X {}` は `.d.ts` でだけ許している
+- 理由の中身の良し悪しは機械的に見られない。「lint が落ちるので」は理由にならない。レビューで見る
+
+| 形                                                | 落ちる | 仕組み                                                  |
+| ------------------------------------------------- | ------ | ------------------------------------------------------- |
+| 理由の無い `eslint-disable`                       | ✅     | `@eslint-community/eslint-comments/require-description` |
+| 使われていない `eslint-disable`                   | ✅     | `reportUnusedDisableDirectives: 'error'`                |
+| ファイル全体の `/* eslint-disable */`（理由つき） | ❌     | 規約のみ                                                |
+| 理由として意味を成さない理由                      | ❌     | レビュー                                                |
