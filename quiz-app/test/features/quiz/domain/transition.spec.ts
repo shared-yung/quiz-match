@@ -22,7 +22,7 @@ import {
 } from '@/features/quiz/domain/transition';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import { playerIdSchema } from '@/shared/identity';
-import { epochMsSchema } from '@/shared/time';
+import { durationMsSchema, epochMsSchema } from '@/shared/time';
 
 const alice = playerIdSchema.parse('alice');
 const bob = playerIdSchema.parse('bob');
@@ -30,8 +30,11 @@ const bob = playerIdSchema.parse('bob');
 /** ホストの時計での時刻。 */
 const at = (ms: number) => epochMsSchema.parse(ms);
 
+/** 回答の制限時間。 */
+const answerTimeLimitMs = durationMsSchema.parse(10_000);
+
 const context = (over: Partial<TransitionContext> = {}): TransitionContext => ({
-  rules: { onWrongAnswer: OnWrongAnswer.Continue, answerTimeLimitMs: 10_000 },
+  rules: { onWrongAnswer: OnWrongAnswer.Continue, answerTimeLimitMs },
   players: [alice, bob],
   now: at(1_000),
   ...over,
@@ -219,7 +222,7 @@ describe('出題の状態遷移', () => {
 
     it('endQuestion: その問題を打ち切る', () => {
       const ctx = context({
-        rules: { onWrongAnswer: OnWrongAnswer.EndQuestion, answerTimeLimitMs: 10_000 },
+        rules: { onWrongAnswer: OnWrongAnswer.EndQuestion, answerTimeLimitMs },
       });
 
       const next = accepted(transition(judging(), wrong, ctx));
@@ -229,7 +232,7 @@ describe('出題の状態遷移', () => {
 
     describe('hostDecides', () => {
       const ctx = context({
-        rules: { onWrongAnswer: OnWrongAnswer.HostDecides, answerTimeLimitMs: 10_000 },
+        rules: { onWrongAnswer: OnWrongAnswer.HostDecides, answerTimeLimitMs },
       });
 
       it('選択が無ければ遷移しない', () => {
@@ -250,7 +253,7 @@ describe('出題の状態遷移', () => {
 
     it('hostDecides 以外では選択を無視する', () => {
       const ctx = context({
-        rules: { onWrongAnswer: OnWrongAnswer.EndQuestion, answerTimeLimitMs: 10_000 },
+        rules: { onWrongAnswer: OnWrongAnswer.EndQuestion, answerTimeLimitMs },
       });
       const event: QuestionEvent = {
         type: QuestionEventType.Judge,

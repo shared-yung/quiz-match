@@ -117,6 +117,9 @@ export type WinConditionType = (typeof WinConditionType)[keyof typeof WinConditi
  *
  * 項目を増やすときはドメイン側（`features/room/domain/rule-set.ts`）と両方を
  * 更新する。食い違いは net の infrastructure の変換で型エラーとして出る。
+ *
+ * 時間の項目は、ドメインでは `DurationMs`（`src/shared/time.ts` のブランド型）。
+ * ここは素の数値で、変換は net の infrastructure が行う（ADR 0002）。
  */
 export const ruleSetPayloadSchema = z.object({
   onWrongAnswer: onWrongAnswerSchema,

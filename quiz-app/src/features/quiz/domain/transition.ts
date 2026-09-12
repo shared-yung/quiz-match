@@ -1,6 +1,6 @@
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import type { PlayerId } from '@/shared/identity';
-import { addMs, type EpochMs } from '@/shared/time';
+import { addMs, type DurationMs, type EpochMs } from '@/shared/time';
 import {
   CloseReason,
   isFullyRevealed,
@@ -39,7 +39,7 @@ export type OnWrongAnswer = (typeof OnWrongAnswer)[keyof typeof OnWrongAnswer];
  */
 export type QuestionRules = {
   onWrongAnswer: OnWrongAnswer;
-  answerTimeLimitMs: number;
+  answerTimeLimitMs: DurationMs;
 };
 
 export type TransitionContext = {
