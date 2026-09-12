@@ -1,5 +1,6 @@
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import type { PlayerId } from '@/shared/identity';
+import { durationBetween } from '@/shared/time';
 import {
   BuzzRejection,
   Phase,
@@ -132,7 +133,7 @@ export const createQuestionSession = ({
 
     notifier.buzzAccepted(playerId, state.answerDeadline);
 
-    cancelAnswerTimeout = timer.schedule(state.answerDeadline - timer.now(), () => {
+    cancelAnswerTimeout = timer.schedule(durationBetween(timer.now(), state.answerDeadline), () => {
       cancelAnswerTimeout = undefined;
       // 回答が先に届いていれば buzzed ではないので拒否される。そのときは何もしない
       dispatch({ type: QuestionEventType.AnswerTimeout });

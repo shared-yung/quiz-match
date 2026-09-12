@@ -1,11 +1,11 @@
 import type { Timer } from '@/features/quiz/domain/timer';
-import { addMs, epochMsSchema, type EpochMs } from '@/shared/time';
+import { addMs, epochMsSchema, type DurationMs, type EpochMs } from '@/shared/time';
 
 type Scheduled = { at: EpochMs; order: number; callback: () => void };
 
 export type FakeTimer = Timer & {
   /** 時刻を進め、その間に期限の来たものを発火させる */
-  advance: (ms: number) => void;
+  advance: (ms: DurationMs) => void;
   /** 未発火の数 */
   pending: () => number;
 };
@@ -24,7 +24,7 @@ export const createFakeTimer = (start: EpochMs = epochMsSchema.parse(1_000)): Fa
   const nextDue = (until: EpochMs): Scheduled | undefined =>
     queue.filter((entry) => entry.at <= until).sort((a, b) => a.at - b.at || a.order - b.order)[0];
 
-  const schedule = (delayMs: number, callback: () => void): (() => void) => {
+  const schedule = (delayMs: DurationMs, callback: () => void): (() => void) => {
     const entry: Scheduled = { at: addMs(current, delayMs), order: sequence++, callback };
     queue.push(entry);
 
@@ -33,7 +33,7 @@ export const createFakeTimer = (start: EpochMs = epochMsSchema.parse(1_000)): Fa
     };
   };
 
-  const advance = (ms: number): void => {
+  const advance = (ms: DurationMs): void => {
     const target = addMs(current, ms);
 
     for (let next = nextDue(target); next !== undefined; next = nextDue(target)) {

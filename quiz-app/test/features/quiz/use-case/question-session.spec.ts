@@ -11,7 +11,7 @@ import {
 import { OnWrongAnswer } from '@/features/quiz/domain/transition';
 import { createQuestionSession } from '@/features/quiz/use-case/question-session';
 import { playerIdSchema } from '@/shared/identity';
-import { addMs, epochMsSchema } from '@/shared/time';
+import { addMs, durationMsSchema, epochMsSchema } from '@/shared/time';
 import { createRecordingNotifier } from './question-notifier.fake';
 import { createFakeTimer } from './timer.fake';
 
@@ -20,7 +20,7 @@ const bob = playerIdSchema.parse('bob');
 const carol = playerIdSchema.parse('carol');
 
 const start = epochMsSchema.parse(1_000);
-const answerTimeLimitMs = 10_000;
+const answerTimeLimitMs = durationMsSchema.parse(10_000);
 const deadline = addMs(start, answerTimeLimitMs);
 
 const revealing = (over: Partial<RevealingState> = {}): RevealingState => ({
@@ -148,7 +148,7 @@ describe('回答の受付', () => {
     const { session, timer, states } = setup();
     session.buzz(alice);
 
-    timer.advance(answerTimeLimitMs - 1);
+    timer.advance(durationMsSchema.parse(answerTimeLimitMs - 1));
     session.submitAnswer(alice, '答え');
 
     expect(session.state()).toMatchObject({

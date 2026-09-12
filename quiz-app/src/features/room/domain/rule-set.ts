@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { durationMsSchema } from '@/shared/time';
 
 /**
  * ゲームのルール設定。ルーム作成時にホストが決める。
@@ -51,17 +52,26 @@ export const winConditionSchema = z.discriminatedUnion('type', [
 
 export type WinCondition = z.infer<typeof winConditionSchema>;
 
+/**
+ * 0 を許さない期間。0 だと回答や公開が成り立たない。
+ *
+ * 時間の項目は既定値を `prefault` で渡す。zod v4 の `default` は変換後の型を要求し、
+ * ブランド型の項目に素の数値を渡せないため。`prefault` なら既定値も入力として
+ * 検証を通る。
+ */
+const positiveDurationMsSchema = z.number().int().positive().pipe(durationMsSchema);
+
 export const ruleSetSchema = z.object({
   onWrongAnswer: onWrongAnswerSchema.default(OnWrongAnswer.Continue),
 
   /** 早押し後、回答を送るまでの制限時間 */
-  answerTimeLimitMs: z.number().int().positive().default(10_000),
+  answerTimeLimitMs: positiveDurationMsSchema.prefault(10_000),
 
   /** 問題文を1文字送る間隔 */
-  revealIntervalMs: z.number().int().positive().default(200),
+  revealIntervalMs: positiveDurationMsSchema.prefault(200),
 
   /** 全文公開後に押下を受け付ける猶予 */
-  postRevealGraceMs: z.number().int().nonnegative().default(5_000),
+  postRevealGraceMs: durationMsSchema.prefault(5_000),
 
   scoring: scoringSchema.default({ correct: 1, wrong: 0 }),
 
