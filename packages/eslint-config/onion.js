@@ -1,4 +1,5 @@
 import boundaries from 'eslint-plugin-boundaries';
+import { restrictedSyntax } from './base.js';
 
 /**
  * feature-first オニオンアーキテクチャの依存方向を機械的に強制する。
@@ -9,7 +10,9 @@ import boundaries from 'eslint-plugin-boundaries';
  *   src/features/<feature>/infrastructure  API / ストレージなど外部との接続
  *   src/features/<feature>/presentation    Vue コンポーネントと Pinia ストア
  *   src/features/<feature>/index.ts        feature の公開 API。他 feature はここだけを参照できる
- *   src/shared/**                          feature をまたぐ共有コード
+ *   src/shared/{i18n,composables}/**       Vue に依存する共有コード（shared-ui）。
+ *                                          presentation と合成ルートからだけ使える
+ *   src/shared/**                          feature をまたぐ共有コード。Vue に依存しない
  *   test/**                                テスト。src の木をミラーし、同じ層として扱う。
  *                                          テストダブルは test/features/<f>/<layer>/*.fake.ts
  *   src/App.vue と src/{boot,router,layouts,pages,components,stores,css,assets}/**
@@ -21,8 +24,25 @@ import boundaries from 'eslint-plugin-boundaries';
  *   root はソースルート（既定 'src'）、testRoot はテストのルート（既定 'test'）。
  *   test/ は src の木をミラーし、同じ層として分類される
  */
+
+/**
+ * Vue のリアクティビティとコンテキストに依存するライブラリ。presentation・shared-ui・
+ * 合成ルートの外では import させない（docs/architecture/factories-and-composables.md）。
+ */
+const vueDependencies = ['vue', 'pinia', 'vue-router', 'vue-i18n', '@vueuse/*'];
+
+/** Vue に依存しない層で `use～` を宣言させない。`use～` はコンポーザブルの名前。 */
+const composableDeclaration = {
+  selector: ':matches(FunctionDeclaration, VariableDeclarator)[id.name=/^use[A-Z]/]',
+  message:
+    'use～ は Vue に依存するコンポーザブルの名前です。この層では create～ か動詞で名付けてください（docs/architecture/factories-and-composables.md）',
+};
+
 export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
   const own = (type) => [type, { feature: '${from.feature}' }];
+
+  /** Vue に依存する共有コードの置き場所。 */
+  const sharedUi = 'shared/{i18n,composables}';
 
   return [
     {
@@ -69,6 +89,9 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
             pattern: `${root}/features/*/presentation`,
             capture: ['feature'],
           },
+          // shared より前に置く。boundaries は最初に一致した要素を採るので、
+          // 後ろに置くと shared に吸われる
+          { type: 'shared-ui', mode: 'full', pattern: `${root}/${sharedUi}/**/*` },
           { type: 'shared', mode: 'full', pattern: `${root}/shared/**/*` },
           {
             type: 'app',
@@ -115,6 +138,7 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
                   own('use-case'),
                   own('presentation'),
                   'shared',
+                  'shared-ui',
                   'feature-api',
                 ],
               },
@@ -128,13 +152,17 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
                   own('infrastructure'),
                   own('presentation'),
                   'shared',
+                  'shared-ui',
                 ],
               },
 
               // アプリ組み立て層は feature の公開 API と shared のみ
-              { from: ['app'], allow: ['app', 'feature-api', 'shared'] },
+              { from: ['app'], allow: ['app', 'feature-api', 'shared', 'shared-ui'] },
 
               { from: ['shared'], allow: ['shared'] },
+
+              // Vue に依存する共有コード。Vue に依存しない shared は使ってよい
+              { from: ['shared-ui'], allow: ['shared', 'shared-ui'] },
             ],
           },
         ],
@@ -149,6 +177,14 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
                 message: 'domain 層で import できる外部ライブラリは zod のみです',
               },
               { from: ['domain'], allow: ['zod'] },
+
+              // ファクトリー関数の層。Vue の setup コンテキストに依存させない
+              {
+                from: ['use-case', 'infrastructure', 'shared'],
+                disallow: vueDependencies,
+                message:
+                  '${file.type} では Vue に依存するライブラリを import できません。presentation か shared-ui に置いてください（docs/architecture/factories-and-composables.md）',
+              },
             ],
           },
         ],
@@ -160,6 +196,21 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
       // 外部ライブラリの制限だけ外す。
       files: ['**/*.spec.ts', '**/*.test.ts'],
       rules: { 'boundaries/external': 'off' },
+    },
+    {
+      // Vue に依存しない層で use～ を宣言させない
+      files: [
+        `${root}/features/*/{domain,use-case,infrastructure}/**`,
+        `${root}/shared/**`,
+        `${testRoot}/features/*/{domain,use-case,infrastructure}/**`,
+        `${testRoot}/shared/**`,
+      ],
+      ignores: [`${root}/${sharedUi}/**`, `${testRoot}/${sharedUi}/**`],
+      rules: {
+        // base の禁止を引き継いだうえで足す。flat config は同じルールの options を
+        // 丸ごと置き換えるので、展開しないと enum 相当の禁止がここで消える
+        'no-restricted-syntax': ['error', ...restrictedSyntax, composableDeclaration],
+      },
     },
   ];
 }
