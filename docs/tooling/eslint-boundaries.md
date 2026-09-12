@@ -43,6 +43,8 @@ export default [
 
 **他 feature の内部への import。** `features/quiz/domain/...` を `features/user/` から参照すると落ちる。`features/quiz/index.ts` に公開したものだけを使う。
 
+**Vue に依存する共有コードへの import。** domain / use-case / infrastructure / shared から `@/shared/i18n` や `@/shared/composables` を参照すると落ちる（要素 `shared-ui`）。文言が要るなら、use-case はキーや値を返し、翻訳は presentation で行う。
+
 ## 外部ライブラリの制限
 
 `boundaries/external` で domain 層の外部依存を **zod のみ**に絞っている。
@@ -53,6 +55,20 @@ export default [
 ```
 
 Vue、Quasar、Pinia、HTTP クライアント、日付ライブラリはすべてここで弾かれる。日付操作が必要になったら、domain には値オブジェクトを置いてライブラリ依存を infrastructure か shared に追い出す。
+
+use-case / infrastructure / shared では **Vue に依存するライブラリだけ**を禁止している。
+
+```js
+{ from: ['use-case', 'infrastructure', 'shared'], disallow: ['vue', 'pinia', 'vue-router', 'vue-i18n', '@vueuse/*'] },
+```
+
+これらの層の関数は Vue の外から呼ばれるファクトリー関数で、setup コンテキストを要求できないため。Vue に依存するものは presentation か shared-ui に置く（[ファクトリー関数とコンポーザブル](../architecture/factories-and-composables.md)）。
+
+## `use～` の宣言
+
+domain / use-case / infrastructure / shared（shared-ui を除く）で `useXxx` という関数を宣言すると、`no-restricted-syntax` で落ちる。`use～` は Vue に依存するコンポーザブルの名前のため。
+
+この設定は `base.js` の禁止（enum 相当など）を `restrictedSyntax` として引き継いだうえで足している。**flat config は、後段で同じルールを指定すると options を丸ごと置き換える**ため、展開しないとそのファイルで enum 相当の禁止が黙って消える。プロジェクト側で `no-restricted-syntax` を足すときも同じようにすること。
 
 ## import の解決について
 

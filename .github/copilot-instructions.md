@@ -12,5 +12,6 @@
 - domain 層で import してよい外部ライブラリは zod のみ
 - presentation は infrastructure を直接呼ばず、必ず use-case を経由する
 - 他 feature を参照するときは `features/<name>/index.ts` の公開 API 経由
+- Vue に依存する関数は `use～`（presentation と `src/shared/{i18n,composables}` のみ）、依存しないものは `create～`
 
 詳細な根拠と手順は [docs/README.md](../docs/README.md) のインデックスから辿る。
