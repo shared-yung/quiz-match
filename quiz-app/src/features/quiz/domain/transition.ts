@@ -1,5 +1,6 @@
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import type { PlayerId } from '@/shared/identity';
+import { addMs, type EpochMs } from '@/shared/time';
 import {
   CloseReason,
   isFullyRevealed,
@@ -45,8 +46,8 @@ export type TransitionContext = {
   rules: QuestionRules;
   /** 現在の参加者。**押せる人が居るか**の判定に使う */
   players: readonly PlayerId[];
-  /** ホストの時計での現在時刻（epoch ミリ秒） */
-  now: number;
+  /** ホストの時計での現在時刻 */
+  now: EpochMs;
 };
 
 /**
@@ -234,7 +235,7 @@ export const transition = (
         ...state,
         phase: Phase.Buzzed,
         buzzer: event.playerId,
-        answerDeadline: context.now + context.rules.answerTimeLimitMs,
+        answerDeadline: addMs(context.now, context.rules.answerTimeLimitMs),
       });
     }
 

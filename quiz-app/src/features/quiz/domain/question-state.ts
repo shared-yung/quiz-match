@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { playerIdSchema } from '@/shared/identity';
+import { epochMsSchema } from '@/shared/time';
 
 /**
  * 1つの問題の進行状態。docs/spec/game-rules.md の状態遷移図と1対1で対応する。
@@ -89,7 +90,7 @@ export const questionStateSchema = z.discriminatedUnion('phase', [
     revealedCount: revealedCountSchema,
     lockedOut: lockedOutSchema,
     buzzer: playerIdSchema,
-    answerDeadline: z.number().int().nonnegative(),
+    answerDeadline: epochMsSchema,
   }),
 
   /** ホストの判定待ち。`answer` が `null` なら**時間切れの無回答** */
