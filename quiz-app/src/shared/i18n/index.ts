@@ -21,12 +21,22 @@ type Leaves<T> = {
 
 export type MessageKey = Leaves<MessageSchema>;
 
-export const SUPPORTED_LOCALES = ['ja', 'en'] as const;
-export type Locale = (typeof SUPPORTED_LOCALES)[number];
+/** 対応するロケール。値は vue-i18n に渡すロケールコード。 */
+export const Locale = {
+  /** 日本語。型のマスター */
+  Ja: 'ja',
+  /** 英語 */
+  En: 'en',
+} as const;
 
-export const DEFAULT_LOCALE: Locale = 'ja';
+export type Locale = (typeof Locale)[keyof typeof Locale];
 
-export const messages = { ja, en } satisfies Record<Locale, MessageSchema>;
+export const DEFAULT_LOCALE: Locale = Locale.Ja;
+
+export const messages = { [Locale.Ja]: ja, [Locale.En]: en } satisfies Record<
+  Locale,
+  MessageSchema
+>;
 
 export { useAppI18n } from './use-app-i18n';
 
@@ -35,6 +45,5 @@ export { useAppI18n } from './use-app-i18n';
  * これがないと任意の文字列が通ってしまう。
  */
 declare module 'vue-i18n' {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   export interface DefineLocaleMessage extends MessageSchema {}
 }

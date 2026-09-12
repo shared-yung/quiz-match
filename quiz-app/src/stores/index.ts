@@ -2,16 +2,10 @@ import { defineStore } from '#q-app';
 import { createPinia } from 'pinia';
 
 /*
- * When adding new properties to stores, you should also
- * extend the `PiniaCustomProperties` interface.
+ * ストアにプロパティを足すプラグインを入れるときは、ここで `declare module 'pinia'` の
+ * `PiniaCustomProperties` を拡張する。中身の無い拡張は置かない（効果が無い）。
  * @see https://pinia.vuejs.org/core-concepts/plugins.html#typing-new-store-properties
  */
-declare module 'pinia' {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  export interface PiniaCustomProperties {
-    // add your custom properties here, if any
-  }
-}
 
 /*
  * If not building with SSR mode, you can
