@@ -44,6 +44,9 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
   /** Vue に依存する共有コードの置き場所。 */
   const sharedUi = 'shared/{i18n,composables}';
 
+  /** src と、それをミラーした test の両方のパターン。test 側も同じ要素として分類する。 */
+  const mirrored = (path) => [`${root}/${path}`, `${testRoot}/${path}`];
+
   return [
     {
       plugins: { boundaries },
@@ -56,47 +59,49 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
           typescript: { alwaysTryTypes: true },
         },
         // テストは test/ に置くが、src の木をミラーするので層として分類する。
-        // これをしないと test/ が解析対象外になり、テストに対する層の強制が消える。
+        // include に test/ を足すだけでは足りない。どの要素のパターンにも一致しないファイルは
+        // 分類されず、エラーも出さずに素通りする。各要素の pattern に test 側も持たせること。
         'boundaries/include': [`${root}/**/*`, `${testRoot}/**/*`],
         'boundaries/elements': [
           {
             type: 'feature-api',
             mode: 'file',
-            pattern: `${root}/features/*/index.ts`,
+            // 公開 API のテストはファイル名が変わるので mirrored を使わない
+            pattern: [`${root}/features/*/index.ts`, `${testRoot}/features/*/index.{spec,test}.ts`],
             capture: ['feature'],
           },
           {
             type: 'domain',
             mode: 'folder',
-            pattern: `${root}/features/*/domain`,
+            pattern: mirrored('features/*/domain'),
             capture: ['feature'],
           },
           {
             type: 'use-case',
             mode: 'folder',
-            pattern: `${root}/features/*/use-case`,
+            pattern: mirrored('features/*/use-case'),
             capture: ['feature'],
           },
           {
             type: 'infrastructure',
             mode: 'folder',
-            pattern: `${root}/features/*/infrastructure`,
+            pattern: mirrored('features/*/infrastructure'),
             capture: ['feature'],
           },
           {
             type: 'presentation',
             mode: 'folder',
-            pattern: `${root}/features/*/presentation`,
+            pattern: mirrored('features/*/presentation'),
             capture: ['feature'],
           },
           // shared より前に置く。boundaries は最初に一致した要素を採るので、
           // 後ろに置くと shared に吸われる
-          { type: 'shared-ui', mode: 'full', pattern: `${root}/${sharedUi}/**/*` },
-          { type: 'shared', mode: 'full', pattern: `${root}/shared/**/*` },
+          { type: 'shared-ui', mode: 'full', pattern: mirrored(`${sharedUi}/**/*`) },
+          { type: 'shared', mode: 'full', pattern: mirrored('shared/**/*') },
           {
             type: 'app',
             mode: 'full',
-            pattern: `${root}/{boot,router,layouts,pages,components,stores,css,assets}/**/*`,
+            pattern: mirrored('{boot,router,layouts,pages,components,stores,css,assets}/**/*'),
           },
           { type: 'app', mode: 'full', pattern: `${root}/App.vue` },
         ],

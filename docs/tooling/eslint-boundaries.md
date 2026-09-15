@@ -25,9 +25,16 @@ export default [
 
 ## テストファイルの扱い
 
-テストは `test/` に置くが、**`boundaries/include` を `{src,test}` の両方に広げ、`test/` の各ディレクトリを `src` と同じ層として分類している。** `test/features/*/domain` は `domain` 要素になる。
+テストは `test/` に置くが、**`test/` の各ディレクトリを `src` と同じ層として分類している。** `test/features/*/domain` は `domain` 要素になる。
 
-これをしないと `test/` が解析対象外になり、テストに対する層の強制が消える。
+そのために2か所に `test/` を足している。
+
+- `boundaries/include` を `{src,test}` の両方に広げる（解析対象にする）
+- 各要素の `pattern` を `[src 側, test 側]` の配列にする（層として分類する）。`onion.js` の `mirrored()` がこれを作る
+
+**`include` だけでは効かない。** どの要素のパターンにも一致しないファイルは分類されず、エラーも出さずに素通りする。以前はこの状態で、`test/` の spec から他 feature の domain を import しても落ちなかった。要素を足すときは test 側のパターンも忘れないこと。
+
+公開 API（`index.ts`）のテストはファイル名が変わるので、test 側は `test/features/*/index.{spec,test}.ts` を個別に指定している。
 
 `**/*.spec.ts` では `boundaries/external` を無効にしている。テストは層を問わず vitest や `@vue/test-utils` を import するため。
 
