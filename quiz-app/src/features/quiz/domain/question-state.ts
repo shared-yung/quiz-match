@@ -135,6 +135,17 @@ const characters = (text: string): string[] => [...text];
 /** 問題文の文字数。 */
 export const characterCount = (text: string): number => characters(text).length;
 
+/**
+ * 問題文の `position` 文字目（0 始まり、コードポイントで数える）。
+ * 範囲外を指すのは呼び出し側の誤りなので、例外で止める。
+ */
+export const characterAt = (text: string, position: number): string => {
+  const char = characters(text)[position];
+  if (char === undefined) throw new RangeError(`position ${position} is out of range`);
+
+  return char;
+};
+
 /** ここまでに公開された部分。プレイヤーに見えているのはこれだけ。 */
 export const revealedText = (state: RevealingState | BuzzedState | JudgingState): string =>
   characters(state.text).slice(0, state.revealedCount).join('');

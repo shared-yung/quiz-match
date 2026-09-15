@@ -22,6 +22,15 @@ const carol = playerIdSchema.parse('carol');
 const start = epochMsSchema.parse(1_000);
 const answerTimeLimitMs = durationMsSchema.parse(10_000);
 const deadline = addMs(start, answerTimeLimitMs);
+const revealIntervalMs = durationMsSchema.parse(200);
+const postRevealGraceMs = durationMsSchema.parse(5_000);
+
+/** 公開間隔 n 回分の期間 */
+const intervals = (n: number) => durationMsSchema.parse(revealIntervalMs * n);
+
+const idle: QuestionState = { phase: Phase.Idle, questionIndex: 0 };
+
+const ready = (text = 'クイズ'): QuestionState => ({ phase: Phase.Ready, questionIndex: 0, text });
 
 const revealing = (over: Partial<RevealingState> = {}): RevealingState => ({
   phase: Phase.Revealing,
@@ -54,7 +63,12 @@ const setup = (initialState: QuestionState = revealing()) => {
   const recorded = createRecordingNotifier();
   const session = createQuestionSession({
     initialState,
-    rules: { onWrongAnswer: OnWrongAnswer.Continue, answerTimeLimitMs },
+    rules: {
+      onWrongAnswer: OnWrongAnswer.Continue,
+      answerTimeLimitMs,
+      revealIntervalMs,
+      postRevealGraceMs,
+    },
     players: () => [alice, bob, carol],
     timer,
     notifier: recorded.notifier,
@@ -62,6 +76,125 @@ const setup = (initialState: QuestionState = revealing()) => {
 
   return { session, timer, ...recorded };
 };
+
+describe('出題の進行', () => {
+  it('問題文を入力すると公開前の状態になる', () => {
+    const { session, states } = setup(idle);
+
+    session.setQuestion('クイズ');
+
+    expect(session.state()).toEqual(ready('クイズ'));
+    expect(states).toEqual([session.state()]);
+  });
+
+  it('空の問題文は捨てる', () => {
+    const { session, states } = setup(idle);
+
+    session.setQuestion('   ');
+
+    expect(session.state()).toEqual(idle);
+    expect(states).toEqual([]);
+  });
+
+  it('公開を始めたことを知らせ、1文字目は1間隔後に送る', () => {
+    const { session, timer, revealStarts, chars } = setup(ready());
+
+    session.startReveal();
+
+    expect(revealStarts).toEqual([0]);
+    expect(chars).toEqual([]);
+
+    timer.advance(durationMsSchema.parse(revealIntervalMs - 1));
+    expect(chars).toEqual([]);
+
+    timer.advance(durationMsSchema.parse(1));
+    expect(chars).toEqual([{ position: 0, char: 'ク' }]);
+  });
+
+  it('間隔ごとに先頭から1文字ずつ、コードポイント単位で送る', () => {
+    const { session, timer, chars } = setup(ready('𠮷野家'));
+    session.startReveal();
+
+    timer.advance(intervals(3));
+
+    expect(chars).toEqual([
+      { position: 0, char: '𠮷' },
+      { position: 1, char: '野' },
+      { position: 2, char: '家' },
+    ]);
+    expect(session.state()).toMatchObject({ phase: Phase.Revealing, revealedCount: 3 });
+  });
+
+  it('早押しを受理したら即座に止まり、それ以降の文字を送らない', () => {
+    const { session, timer, chars } = setup(ready());
+    session.startReveal();
+    timer.advance(intervals(2));
+
+    session.buzz(alice);
+
+    // 残るタイマーは回答の時間切れだけ
+    expect(timer.pending()).toBe(1);
+
+    // 時間切れで判定待ちに進んだ後も、文字は増えない
+    timer.advance(durationMsSchema.parse(answerTimeLimitMs * 2));
+
+    expect(chars.map(({ position }) => position)).toEqual([0, 1]);
+    expect(session.state()).toMatchObject({ phase: Phase.Judging, revealedCount: 2 });
+  });
+
+  it('全文を公開したら猶予を待ち、誰も押さなければ時間切れで終わる', () => {
+    const { session, timer, chars } = setup(ready());
+    session.startReveal();
+    timer.advance(intervals(3));
+
+    timer.advance(durationMsSchema.parse(postRevealGraceMs - 1));
+    expect(session.state().phase).toBe(Phase.Revealing);
+
+    timer.advance(durationMsSchema.parse(1));
+
+    expect(session.state()).toMatchObject({ phase: Phase.Closed, reason: CloseReason.TimeUp });
+    expect(chars).toHaveLength(3);
+    expect(timer.pending()).toBe(0);
+  });
+
+  it('猶予中に押されたら猶予のタイマーを止める', () => {
+    const { session, timer } = setup(revealing({ revealedCount: 3 }));
+    timer.advance(durationMsSchema.parse(postRevealGraceMs - 1));
+
+    session.buzz(alice);
+    timer.advance(durationMsSchema.parse(1));
+
+    expect(session.state()).toMatchObject({ phase: Phase.Buzzed, buzzer: alice });
+    expect(timer.pending()).toBe(1);
+  });
+
+  it('公開中の状態から始めると、続きの文字から1間隔後に再開する', () => {
+    const { session, timer, chars } = setup(revealing({ revealedCount: 1, lockedOut: [bob] }));
+
+    timer.advance(revealIntervalMs);
+
+    expect(chars).toEqual([{ position: 1, char: 'イ' }]);
+    expect(session.state()).toMatchObject({ revealedCount: 2, lockedOut: [bob] });
+  });
+
+  it.each<[string, QuestionState]>([
+    ['問題が未設定', idle],
+    ['公開中', revealing()],
+    [
+      '問題の終了後',
+      { phase: Phase.Closed, questionIndex: 0, text: 'クイズ', reason: CloseReason.Correct },
+    ],
+  ])('%s に公開を始めようとしても何もしない', (_name, initial) => {
+    const { session, timer, revealStarts, states } = setup(initial);
+    const pendingBefore = timer.pending();
+
+    session.startReveal();
+
+    expect(revealStarts).toEqual([]);
+    expect(states).toEqual([]);
+    expect(timer.pending()).toBe(pendingBefore);
+  });
+});
 
 describe('早押しの受付', () => {
   it('受理すると回答待ちになり、締め切りつきで採用を知らせる', () => {
@@ -126,8 +259,8 @@ describe('早押しの受付', () => {
   });
 
   it.each<[string, QuestionState]>([
-    ['問題が未設定', { phase: Phase.Idle, questionIndex: 0 }],
-    ['公開前', { phase: Phase.Ready, questionIndex: 0, text: 'クイズ' }],
+    ['問題が未設定', idle],
+    ['公開前', ready()],
     [
       '問題の終了後',
       { phase: Phase.Closed, questionIndex: 0, text: 'クイズ', reason: CloseReason.Correct },

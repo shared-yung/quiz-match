@@ -5,11 +5,19 @@ import type { EpochMs } from '@/shared/time';
 
 /** 通知を記録するだけの fake。種類ごとに、届いた順で配列へ積む。 */
 export const createRecordingNotifier = () => {
+  const revealStarts: number[] = [];
+  const chars: { position: number; char: string }[] = [];
   const accepted: { playerId: PlayerId; answerDeadline: EpochMs }[] = [];
   const rejected: { playerId: PlayerId; reason: BuzzRejection }[] = [];
   const states: QuestionState[] = [];
 
   const notifier: QuestionNotifier = {
+    revealStarted: (questionIndex) => {
+      revealStarts.push(questionIndex);
+    },
+    charRevealed: (position, char) => {
+      chars.push({ position, char });
+    },
     buzzAccepted: (playerId, answerDeadline) => {
       accepted.push({ playerId, answerDeadline });
     },
@@ -21,5 +29,5 @@ export const createRecordingNotifier = () => {
     },
   };
 
-  return { notifier, accepted, rejected, states };
+  return { notifier, revealStarts, chars, accepted, rejected, states };
 };
