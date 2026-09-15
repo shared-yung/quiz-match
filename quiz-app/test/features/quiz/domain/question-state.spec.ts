@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  characterAt,
   characterCount,
   initialQuestionState,
   isFullyRevealed,
@@ -34,6 +35,21 @@ describe('出題の状態', () => {
     it('サロゲートペアを1文字と数える', () => {
       expect(characterCount('🍣🍺')).toBe(2);
       expect('🍣🍺'.length).toBe(4);
+    });
+  });
+
+  describe('位置の1文字', () => {
+    it('0 始まりの位置で取り出す', () => {
+      expect(characterAt('クイズ', 0)).toBe('ク');
+      expect(characterAt('クイズ', 2)).toBe('ズ');
+    });
+
+    it('サロゲートペアを1文字として取り出す', () => {
+      expect(characterAt('🍣🍺', 1)).toBe('🍺');
+    });
+
+    it('範囲外は例外で止める', () => {
+      expect(() => characterAt('クイズ', 3)).toThrow(RangeError);
     });
   });
 

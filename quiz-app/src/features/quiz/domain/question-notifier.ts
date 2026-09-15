@@ -24,7 +24,14 @@ export type BuzzRejection = (typeof BuzzRejection)[keyof typeof BuzzRejection];
  * 担い、quiz は通信の形を知らない（ADR 0002）。
  */
 export type QuestionNotifier = {
-  /** 早押しを採用した。締め切りはホストの時計での絶対時刻 */
+  /** 公開を始めた。問題文そのものは知らせない */
+  revealStarted: (questionIndex: number) => void;
+  /** 1文字公開した。`position` は 0 始まりで、コードポイントで数える */
+  charRevealed: (position: number, char: string) => void;
+  /**
+   * 早押しを採用した。締め切りはホストの時計での絶対時刻。
+   * **公開の停止もこれで知る。** 採用と同時に文字の送信は止まっている
+   */
   buzzAccepted: (playerId: PlayerId, answerDeadline: EpochMs) => void;
   /** 押下を却下した。**本人にだけ**知らせる */
   buzzRejected: (playerId: PlayerId, reason: BuzzRejection) => void;
