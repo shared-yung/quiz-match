@@ -94,8 +94,7 @@ const setup = (initialState: QuestionState = revealing(), options: SetupOptions 
   const recorded = createRecordingNotifier();
   const session = createQuestionSession({
     initialState,
-    // exactOptionalPropertyTypes があるので、未指定のときは項目ごと省く
-    ...(options.scores === undefined ? {} : { scores: options.scores }),
+    scores: options.scores,
     rules: {
       onWrongAnswer,
       answerTimeLimitMs,

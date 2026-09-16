@@ -54,8 +54,8 @@ export type QuestionSessionRules = QuestionRules &
 
 export type QuestionSessionDeps = {
   initialState: QuestionState;
-  /** 復元した得点の記録。省略すると参加者全員 0 回から始める */
-  scores?: Scores;
+  /** 復元した得点の記録。省略（または `undefined`）なら参加者全員 0 回から始める */
+  scores?: Scores | undefined;
   rules: QuestionSessionRules;
   /** 現在の参加者。増減するので遷移のたびに読む */
   players: () => readonly PlayerId[];
@@ -141,15 +141,6 @@ const toBuzzRejection = (
       throw new ExhaustiveError(state);
   }
 };
-
-/**
- * 判定のイベント。`exactOptionalPropertyTypes` があるので、選択が無いときは
- * `choice` を **項目ごと省く**（`undefined` を渡すことはできない）。
- */
-const judgeEvent = (correct: boolean, choice: WrongAnswerChoice | undefined): QuestionEvent =>
-  choice === undefined
-    ? { type: QuestionEventType.Judge, correct }
-    : { type: QuestionEventType.Judge, correct, choice };
 
 export const createQuestionSession = ({
   initialState,
@@ -294,7 +285,7 @@ export const createQuestionSession = ({
 
   const judge = (correct: boolean, choice?: WrongAnswerChoice): void => {
     const before = current;
-    const result = dispatch(judgeEvent(correct, choice));
+    const result = dispatch({ type: QuestionEventType.Judge, correct, choice });
 
     // 判定待ちでない、hostDecides なのに選択が無い、は黙って捨てる
     if (!result.accepted) return;
