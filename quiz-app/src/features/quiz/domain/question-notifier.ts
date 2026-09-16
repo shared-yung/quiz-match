@@ -1,6 +1,7 @@
 import type { PlayerId } from '@/shared/identity';
 import type { EpochMs } from '@/shared/time';
-import type { QuestionState } from './question-state';
+import type { Phase, QuestionState } from './question-state';
+import type { Scores } from './scoring';
 
 /**
  * 押下を却下したことを本人に知らせるときの理由。
@@ -35,6 +36,12 @@ export type QuestionNotifier = {
   buzzAccepted: (playerId: PlayerId, answerDeadline: EpochMs) => void;
   /** 押下を却下した。**本人にだけ**知らせる */
   buzzRejected: (playerId: PlayerId, reason: BuzzRejection) => void;
+  /** ホストが正誤を判定した。`nextPhase` は判定の結果として入った状態 */
+  judged: (playerId: PlayerId, correct: boolean, nextPhase: Phase) => void;
+  /** 得点が変わった。**全員分**を知らせる（差分は送らない） */
+  scoresChanged: (scores: Scores) => void;
+  /** 勝利条件を満たしてゲームが終わった。**引き分けなら勝者は複数** */
+  gameEnded: (winners: readonly PlayerId[], scores: Scores) => void;
   /** 状態が変わった。時間切れのように、呼び出しの外で起きる遷移もここで知る */
   stateChanged: (state: QuestionState) => void;
 };

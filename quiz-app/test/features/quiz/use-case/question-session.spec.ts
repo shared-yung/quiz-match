@@ -8,9 +8,17 @@ import {
   type QuestionState,
   type RevealingState,
 } from '@/features/quiz/domain/question-state';
-import { OnWrongAnswer } from '@/features/quiz/domain/transition';
+import {
+  countsOf,
+  WinConditionType,
+  type AnswerCounts,
+  type Scores,
+  type Scoring,
+  type WinCondition,
+} from '@/features/quiz/domain/scoring';
+import { OnWrongAnswer, WrongAnswerChoice } from '@/features/quiz/domain/transition';
 import { createQuestionSession } from '@/features/quiz/use-case/question-session';
-import { playerIdSchema } from '@/shared/identity';
+import { playerIdSchema, type PlayerId } from '@/shared/identity';
 import { addMs, durationMsSchema, epochMsSchema } from '@/shared/time';
 import { createRecordingNotifier } from './question-notifier.fake';
 import { createFakeTimer } from './timer.fake';
@@ -27,6 +35,11 @@ const postRevealGraceMs = durationMsSchema.parse(5_000);
 
 /** 公開間隔 n 回分の期間 */
 const intervals = (n: number) => durationMsSchema.parse(revealIntervalMs * n);
+
+const counts = (correctAnswers: number, wrongAnswers: number): AnswerCounts => ({
+  correctAnswers,
+  wrongAnswers,
+});
 
 const idle: QuestionState = { phase: Phase.Idle, questionIndex: 0 };
 
@@ -57,19 +70,42 @@ const judging = (over: Partial<JudgingState> = {}): JudgingState => ({
   ...over,
 });
 
+type SetupOptions = {
+  onWrongAnswer?: OnWrongAnswer;
+  scoring?: Scoring;
+  winCondition?: WinCondition;
+  questionsExhausted?: boolean;
+  players?: readonly PlayerId[];
+  /** 復元した記録。省略するとセッションが全員 0 回から始める */
+  scores?: Scores;
+};
+
 /** セッションと fake 一式。既定は公開中から始める。 */
-const setup = (initialState: QuestionState = revealing()) => {
+const setup = (initialState: QuestionState = revealing(), options: SetupOptions = {}) => {
+  const {
+    onWrongAnswer = OnWrongAnswer.Continue,
+    scoring = { correct: 1, wrong: 0 },
+    winCondition = { type: WinConditionType.FirstTo, points: 5 },
+    questionsExhausted = false,
+    players = [alice, bob, carol],
+  } = options;
+
   const timer = createFakeTimer(start);
   const recorded = createRecordingNotifier();
   const session = createQuestionSession({
     initialState,
+    // exactOptionalPropertyTypes があるので、未指定のときは項目ごと省く
+    ...(options.scores === undefined ? {} : { scores: options.scores }),
     rules: {
-      onWrongAnswer: OnWrongAnswer.Continue,
+      onWrongAnswer,
       answerTimeLimitMs,
       revealIntervalMs,
       postRevealGraceMs,
+      scoring,
+      winCondition,
     },
-    players: () => [alice, bob, carol],
+    players: () => players,
+    questionsExhausted: () => questionsExhausted,
     timer,
     notifier: recorded.notifier,
   });
@@ -354,5 +390,193 @@ describe('回答の受付', () => {
 
     expect(session.state()).toEqual(revealing());
     expect(states).toEqual([]);
+  });
+});
+
+describe('正誤判定', () => {
+  it('正解なら問題が終わり、判定と得点を知らせる', () => {
+    const { session, judgements, scoreUpdates } = setup(judging());
+
+    session.judge(true);
+
+    expect(session.state()).toMatchObject({ phase: Phase.Closed, reason: CloseReason.Correct });
+    expect(judgements).toEqual([{ playerId: alice, correct: true, nextPhase: Phase.Closed }]);
+    expect(countsOf(session.scores(), alice)).toEqual(counts(1, 0));
+    expect(scoreUpdates).toEqual([session.scores()]);
+  });
+
+  it('誤答（続行）なら誤答者をロックアウトし、続きから公開を再開する', () => {
+    const { session, timer, judgements, chars } = setup(judging());
+
+    session.judge(false);
+
+    expect(session.state()).toMatchObject({
+      phase: Phase.Revealing,
+      revealedCount: 1,
+      lockedOut: [alice],
+    });
+    expect(judgements).toEqual([{ playerId: alice, correct: false, nextPhase: Phase.Revealing }]);
+    expect(countsOf(session.scores(), alice)).toEqual(counts(0, 1));
+
+    timer.advance(revealIntervalMs);
+    expect(chars).toEqual([{ position: 1, char: 'イ' }]);
+  });
+
+  it('誤答（打ち切り）なら問題を終える', () => {
+    const { session } = setup(judging(), { onWrongAnswer: OnWrongAnswer.EndQuestion });
+
+    session.judge(false);
+
+    expect(session.state()).toMatchObject({
+      phase: Phase.Closed,
+      reason: CloseReason.WrongAnswer,
+    });
+    expect(countsOf(session.scores(), alice)).toEqual(counts(0, 1));
+  });
+
+  describe('誤答時にホストが選ぶ設定（hostDecides）', () => {
+    const hostDecides = { onWrongAnswer: OnWrongAnswer.HostDecides } as const;
+
+    it('選択が無ければ、状態も得点も動かさない', () => {
+      const initial = judging();
+      const { session, judgements, scoreUpdates, states } = setup(initial, hostDecides);
+
+      session.judge(false);
+
+      expect(session.state()).toEqual(initial);
+      expect(judgements).toEqual([]);
+      expect(scoreUpdates).toEqual([]);
+      expect(states).toEqual([]);
+      expect(countsOf(session.scores(), alice)).toEqual(counts(0, 0));
+    });
+
+    it('続行を選べば公開に戻る', () => {
+      const { session } = setup(judging(), hostDecides);
+
+      session.judge(false, WrongAnswerChoice.Continue);
+
+      expect(session.state()).toMatchObject({ phase: Phase.Revealing, lockedOut: [alice] });
+      expect(countsOf(session.scores(), alice)).toEqual(counts(0, 1));
+    });
+
+    it('打ち切りを選べば問題を終える', () => {
+      const { session } = setup(judging(), hostDecides);
+
+      session.judge(false, WrongAnswerChoice.EndQuestion);
+
+      expect(session.state()).toMatchObject({
+        phase: Phase.Closed,
+        reason: CloseReason.WrongAnswer,
+      });
+    });
+  });
+
+  it('時間切れ（無回答）の判定も誤答として数える', () => {
+    const { session } = setup(judging({ answer: null }));
+
+    session.judge(false);
+
+    expect(countsOf(session.scores(), alice)).toEqual(counts(0, 1));
+  });
+
+  it('続行しても押せる人が居なくなれば問題を終える', () => {
+    const { session } = setup(judging({ lockedOut: [bob] }), { players: [alice, bob] });
+
+    session.judge(false);
+
+    expect(session.state()).toMatchObject({
+      phase: Phase.Closed,
+      reason: CloseReason.AllLockedOut,
+    });
+  });
+
+  it.each<[string, QuestionState]>([
+    ['公開中', revealing()],
+    ['回答待ち', buzzed()],
+    ['問題が未設定', idle],
+  ])('%s の判定は捨てる', (_name, initial) => {
+    const { session, judgements, scoreUpdates, states } = setup(initial);
+
+    session.judge(true);
+
+    expect(session.state()).toEqual(initial);
+    expect(judgements).toEqual([]);
+    expect(scoreUpdates).toEqual([]);
+    expect(states).toEqual([]);
+  });
+
+  it('復元した記録の続きから数える', () => {
+    const { session } = setup(judging(), { scores: new Map([[alice, counts(2, 1)]]) });
+
+    session.judge(true);
+
+    expect(countsOf(session.scores(), alice)).toEqual(counts(3, 1));
+  });
+});
+
+describe('勝敗と次の問題', () => {
+  const firstTo = (points: number): WinCondition => ({ type: WinConditionType.FirstTo, points });
+
+  it('勝利条件に達したら知らせ、次の問題へは進まない', () => {
+    const { session, gameEnds } = setup(judging(), { winCondition: firstTo(1) });
+
+    session.judge(true);
+
+    expect(gameEnds).toEqual([{ winners: [alice], scores: session.scores() }]);
+
+    session.nextQuestion();
+
+    expect(session.state()).toMatchObject({ phase: Phase.Closed, questionIndex: 0 });
+  });
+
+  it('決勝点を含めて判定する（加点の前に判定しない）', () => {
+    const { session, gameEnds } = setup(judging(), {
+      winCondition: firstTo(3),
+      scores: new Map([[alice, counts(2, 0)]]),
+    });
+
+    session.judge(true);
+
+    expect(gameEnds).toHaveLength(1);
+  });
+
+  it('達していなければ知らせず、次の問題へ進める', () => {
+    const { session, gameEnds } = setup(judging(), { winCondition: firstTo(5) });
+
+    session.judge(true);
+
+    expect(gameEnds).toEqual([]);
+
+    session.nextQuestion();
+
+    expect(session.state()).toEqual({ phase: Phase.Idle, questionIndex: 1 });
+  });
+
+  it('問題を出し切っていれば、猶予切れで終わったときも勝敗を判定する', () => {
+    const { session, timer, gameEnds } = setup(revealing({ revealedCount: 3 }), {
+      questionsExhausted: true,
+      scores: new Map([
+        [alice, counts(2, 0)],
+        [bob, counts(1, 0)],
+      ]),
+    });
+
+    timer.advance(postRevealGraceMs);
+
+    expect(session.state()).toMatchObject({ phase: Phase.Closed, reason: CloseReason.TimeUp });
+    expect(gameEnds).toEqual([{ winners: [alice], scores: session.scores() }]);
+  });
+
+  it('参加者が居なければ、勝者が出ないので知らせない', () => {
+    const { session, timer, gameEnds } = setup(revealing({ revealedCount: 3 }), {
+      questionsExhausted: true,
+      players: [],
+      scores: new Map(),
+    });
+
+    timer.advance(postRevealGraceMs);
+
+    expect(session.state().phase).toBe(Phase.Closed);
+    expect(gameEnds).toEqual([]);
   });
 });
