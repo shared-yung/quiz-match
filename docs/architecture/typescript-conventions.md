@@ -92,6 +92,31 @@ export class ExhaustiveError extends Error {
 
 ESLint の `default-case` は `// no default` コメントで回避できるが、**判別可能ユニオンや enum 相当の switch では使わない。** 網羅チェックごと消えるため。
 
+## 省略可能なプロパティと `exactOptionalPropertyTypes`
+
+`exactOptionalPropertyTypes` を有効にしているので、`foo?: T` は「**項目が無い**」ことだけを許し、`foo: undefined` は渡せない。
+
+**省略と `undefined` を同じ意味で扱う項目は、型に `| undefined` を書く。**
+
+```ts
+type JudgeEvent = { correct: boolean; choice?: WrongAnswerChoice | undefined };
+
+// 呼び出し側の省略可能な引数を、そのまま渡せる
+const judge = (correct: boolean, choice?: WrongAnswerChoice): void =>
+  dispatch({ type: QuestionEventType.Judge, correct, choice });
+```
+
+書かないと、渡す側が毎回こうなる。
+
+```ts
+choice === undefined ? { correct } : { correct, choice } // 条件分岐
+...(choice === undefined ? {} : { choice }) // 条件スプレッド
+```
+
+逆に、**「指定しなかった」と「明示的に空にした」を区別したい項目には `| undefined` を書かない。** 区別できることがこのオプションの利点なので、意味がある場所では残す。
+
+**`undefined` の項目を実行時に落とす汎用ユーティリティは作らない。** `Object.entries` で組み直す形になり、戻り値を型アサーションで復元することになる。型と実行時の値がずれる（省略可能なキーが戻り値の型から消え、値が入っていても読めない）うえ、どちらの意味なのかは項目ごとに決まる。宣言側に1回書くほうが短く、安全。
+
 ## どこまで機械的に強制しているか
 
 `packages/eslint-config` の `no-restricted-syntax` と `default-case`、および typecheck で次を落とす。

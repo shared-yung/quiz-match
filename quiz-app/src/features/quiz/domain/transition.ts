@@ -98,7 +98,11 @@ export type QuestionEvent =
   | { type: typeof QuestionEventType.SubmitAnswer; playerId: PlayerId; text: string }
   | { type: typeof QuestionEventType.AnswerTimeout }
   /** `hostDecides` のときは choice が要る */
-  | { type: typeof QuestionEventType.Judge; correct: boolean; choice?: WrongAnswerChoice }
+  | {
+      type: typeof QuestionEventType.Judge;
+      correct: boolean;
+      choice?: WrongAnswerChoice | undefined;
+    }
   | { type: typeof QuestionEventType.GraceExpired }
   | { type: typeof QuestionEventType.NextQuestion };
 
