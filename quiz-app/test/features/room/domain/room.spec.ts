@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { hasPlayer, isFull, roomSchema, type Room } from '@/features/room/domain/room';
+import {
+  admitPlayer,
+  hasPlayer,
+  isFull,
+  JoinRejection,
+  removePlayer,
+  roomSchema,
+  type Room,
+} from '@/features/room/domain/room';
 import { playerIdSchema } from '@/features/room/domain/player';
 import { ruleSetSchema } from '@/features/room/domain/rule-set';
 
@@ -46,6 +54,52 @@ describe('Room', () => {
       const room = makeRoom(2);
 
       expect(hasPlayer(room, room.hostId)).toBe(false);
+    });
+  });
+
+  describe('admitPlayer', () => {
+    const newcomer = { id: playerId('p9'), name: 'しんいり' };
+
+    it('空きがあれば加えた新しいルームを返し、元のルームは変えない', () => {
+      const room = makeRoom(2);
+
+      const result = admitPlayer(room, newcomer);
+
+      expect(result).toEqual({
+        admitted: true,
+        room: { ...room, players: [...room.players, newcomer] },
+      });
+      expect(room.players).toHaveLength(2);
+    });
+
+    it('満員なら断る', () => {
+      expect(admitPlayer(makeRoom(4, 4), newcomer)).toEqual({
+        admitted: false,
+        reason: JoinRejection.RoomFull,
+      });
+    });
+
+    it('同じ表示名でも迎え入れる（区別は id でつく）', () => {
+      const sameName = { id: playerId('p9'), name: 'プレイヤー1' };
+
+      expect(admitPlayer(makeRoom(1), sameName).admitted).toBe(true);
+    });
+  });
+
+  describe('removePlayer', () => {
+    it('そのプレイヤーを外した新しいルームを返し、元のルームは変えない', () => {
+      const room = makeRoom(3);
+
+      const after = removePlayer(room, playerId('p2'));
+
+      expect(after.players.map((p) => p.id)).toEqual(['p1', 'p3']);
+      expect(room.players).toHaveLength(3);
+    });
+
+    it('参加していなければ同じルームをそのまま返す', () => {
+      const room = makeRoom(2);
+
+      expect(removePlayer(room, playerId('p9'))).toBe(room);
     });
   });
 

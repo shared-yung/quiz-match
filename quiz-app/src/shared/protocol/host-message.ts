@@ -21,6 +21,8 @@ import {
 export const HostMessageType = {
   /** ルームの現在の状態 */
   RoomState: 'room/state',
+  /** 参加の拒否 */
+  JoinRejected: 'join/rejected',
   /** 出題の開始 */
   QuestionStart: 'question/start',
   /** 問題文の1文字 */
@@ -55,6 +57,26 @@ export const roomStateMessageSchema = z.object({
   ruleSet: ruleSetPayloadSchema,
   scores: scoresSchema,
   phase: phaseSchema,
+});
+
+/** 参加を断った理由。 */
+export const JoinRejectedReason = {
+  /** 参加人数が上限に達している */
+  RoomFull: 'roomFull',
+} as const;
+
+export const joinRejectedReasonSchema = z.enum(JoinRejectedReason);
+export type JoinRejectedReason = z.infer<typeof joinRejectedReasonSchema>;
+
+/**
+ * 参加を断った。**断った本人にだけ送る。**
+ *
+ * `buzz/rejected` と同じく、エラー応答ではなく正規クライアントの UI を進めるための
+ * 通知。表示名が不正な `join` は検証で破棄されるので、ここには来ない。
+ */
+export const joinRejectedMessageSchema = z.object({
+  type: z.literal(HostMessageType.JoinRejected),
+  reason: joinRejectedReasonSchema,
 });
 
 /**
@@ -173,6 +195,7 @@ export const gameEndMessageSchema = z.object({
  */
 export const hostMessageSchema = z.discriminatedUnion('type', [
   roomStateMessageSchema,
+  joinRejectedMessageSchema,
   questionStartMessageSchema,
   questionCharMessageSchema,
   revealStopMessageSchema,
