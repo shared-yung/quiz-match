@@ -54,7 +54,7 @@ export type QuestionSessionRules = QuestionRules &
 
 export type QuestionSessionDeps = {
   initialState: QuestionState;
-  /** 復元した得点の記録。省略（または `undefined`）なら参加者全員 0 回から始める */
+  /** 復元した得点の記録。省略すると参加者全員 0 回から始める */
   scores?: Scores | undefined;
   rules: QuestionSessionRules;
   /** 現在の参加者。増減するので遷移のたびに読む */

@@ -97,13 +97,7 @@ export type QuestionEvent =
   | { type: typeof QuestionEventType.Buzz; playerId: PlayerId }
   | { type: typeof QuestionEventType.SubmitAnswer; playerId: PlayerId; text: string }
   | { type: typeof QuestionEventType.AnswerTimeout }
-  /**
-   * `hostDecides` のときは choice が要る。
-   *
-   * **省略と `undefined` を区別しない**ので、`exactOptionalPropertyTypes` の下でも
-   * `undefined` を渡せるように型へ書いておく。どちらも「選択が無い」で、
-   * `judgeWrong` は同じ扱いをする（リポジトリの docs/architecture/typescript-conventions.md）。
-   */
+  /** `hostDecides` のときは choice が要る */
   | {
       type: typeof QuestionEventType.Judge;
       correct: boolean;
