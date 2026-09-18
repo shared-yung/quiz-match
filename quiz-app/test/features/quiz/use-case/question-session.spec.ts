@@ -71,13 +71,13 @@ const judging = (over: Partial<JudgingState> = {}): JudgingState => ({
 });
 
 type SetupOptions = {
-  onWrongAnswer?: OnWrongAnswer;
-  scoring?: Scoring;
-  winCondition?: WinCondition;
-  questionsExhausted?: boolean;
-  players?: readonly PlayerId[];
+  onWrongAnswer?: OnWrongAnswer | undefined;
+  scoring?: Scoring | undefined;
+  winCondition?: WinCondition | undefined;
+  questionsExhausted?: boolean | undefined;
+  players?: readonly PlayerId[] | undefined;
   /** 復元した記録。省略するとセッションが全員 0 回から始める */
-  scores?: Scores;
+  scores?: Scores | undefined;
 };
 
 /** セッションと fake 一式。既定は公開中から始める。 */

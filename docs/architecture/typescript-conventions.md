@@ -94,9 +94,7 @@ ESLint の `default-case` は `// no default` コメントで回避できるが�
 
 ## 省略可能なプロパティと `exactOptionalPropertyTypes`
 
-`exactOptionalPropertyTypes` を有効にしているので、`foo?: T` は「**項目が無い**」ことだけを許し、`foo: undefined` は渡せない。
-
-**省略と `undefined` を同じ意味で扱う項目は、型に `| undefined` を書く。**
+**省略可能なプロパティには、常に `| undefined` を書く。** `no-restricted-syntax` で強制している。
 
 ```ts
 type JudgeEvent = { correct: boolean; choice?: WrongAnswerChoice | undefined };
@@ -106,16 +104,29 @@ const judge = (correct: boolean, choice?: WrongAnswerChoice): void =>
   dispatch({ type: QuestionEventType.Judge, correct, choice });
 ```
 
-書かないと、渡す側が毎回こうなる。
+`exactOptionalPropertyTypes` を有効にしているので、`foo?: T` は「**項目が無い**」ことだけを許し、`foo: undefined` は渡せない。どちらで書くかを宣言ごとに判断させると迷ううえ、`?: T` を選んだ所では渡す側が毎回こうなる。
 
 ```ts
 choice === undefined ? { correct } : { correct, choice } // 条件分岐
 ...(choice === undefined ? {} : { choice }) // 条件スプレッド
 ```
 
-逆に、**「指定しなかった」と「明示的に空にした」を区別したい項目には `| undefined` を書かない。** 区別できることがこのオプションの利点なので、意味がある場所では残す。
+**各宣言に `| undefined` の理由をコメントしない。** 規約として決まっているので、書けば後続が毎回同じ説明を書くようになる。
 
-**`undefined` の項目を実行時に落とす汎用ユーティリティは作らない。** `Object.entries` で組み直す形になり、戻り値を型アサーションで復元することになる。型と実行時の値がずれる（省略可能なキーが戻り値の型から消え、値が入っていても読めない）うえ、どちらの意味なのかは項目ごとに決まる。宣言側に1回書くほうが短く、安全。
+### `exactOptionalPropertyTypes` は切らない
+
+すべてに `| undefined` を書くならオプションごと切ればよい、とはならない。**`Partial<T>` などのユーティリティ型は `| undefined` を含まず、この規則の対象にもならない**ので、そこでは明示的な `undefined` を弾き続ける。テストの `{ ...revealing(), ...over }` のようなスプレッド合成は、`undefined` が入ると既定値を上書きして実行時に壊れる。オプションを切ると、これが型を通ってしまう。
+
+手書きの型で `| undefined` を書いた項目をスプレッド合成の元にしても、合成先が必須プロパティなら型エラーになる。黙って壊れることは無い。
+
+### 例外
+
+- **「指定しなかった」と「明示的に空にした」を区別したい項目**は、行単位の `eslint-disable` に理由を書いて `| undefined` を外す
+- **`.vue` は対象外。** `defineProps` の型は Vue が実行時の props 定義に写し、`label?: string | undefined` は `type: null` になって開発時の型警告が消える（`boolean | undefined` は `type: Boolean` のままで、属性だけ書いたときの `true` への変換は保たれる）。props を持つコンポーネントを書く段階で、実物を見て再判断する
+
+### 汎用ユーティリティは作らない
+
+**`undefined` の項目を実行時に落とすユーティリティ（`omitUndefined` など）は作らない。** `Object.entries` で組み直す形になり、戻り値を型アサーションで復元することになる。型と実行時の値がずれる（省略可能なキーが戻り値の型から消え、値が入っていても読めない）。宣言側に `| undefined` を書けば要らない。
 
 ## どこまで機械的に強制しているか
 
@@ -128,13 +139,14 @@ choice === undefined ? { correct } : { correct, choice } // 条件分岐
 | `z.literal('x')`                                       | ✅     | `no-restricted-syntax`                         |
 | `case 'x':`                                            | ✅     | `no-restricted-syntax`                         |
 | `x === 'x'` / `x !== 'x'`                              | ✅     | `no-restricted-syntax`                         |
+| `foo?: T`（`\| undefined` が無い省略可能なプロパティ） | ✅     | `no-restricted-syntax`                         |
 | default の無い switch                                  | ✅     | `default-case`                                 |
 | case の漏れ                                            | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |
 | 型定義側の `{ type: 'x' }`                             | ❌     | 規約のみ                                       |
 | `type Foo = 'a' \| 'b'`（enum 相当なのに素のユニオン） | ❌     | 規約のみ                                       |
 | default はあるが `ExhaustiveError` を投げていない      | ❌     | 規約のみ                                       |
 
-**意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）と空文字との比較（`x === ''`）。
+**意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）、空文字との比較（`x === ''`）、`.vue` の省略可能なプロパティ（props の型。上の「例外」）。
 
 **検出できないものが3つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。**強制していないものを強制しているつもりにならないこと。**
 

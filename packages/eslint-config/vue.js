@@ -3,6 +3,7 @@ import vueParser from 'vue-eslint-parser';
 import tseslint from 'typescript-eslint';
 import vueI18n from '@intlify/eslint-plugin-vue-i18n';
 import prettier from 'eslint-config-prettier';
+import { optionalPropertyWithUndefined, restrictedSyntax } from './base.js';
 
 /** Vue SFC 用の設定。base の後ろに展開して使う。 */
 export const vue = [
@@ -34,6 +35,13 @@ export const vue = [
           // 例: "404"、"/"、"—"
           ignorePattern: String.raw`^[^\p{L}]+$`,
         },
+      ],
+
+      // props の型は Vue が実行時の型検査に使い、`| undefined` を含むと検査が外れる。
+      // .vue では省略可能なプロパティの規則だけ外す（docs/architecture/typescript-conventions.md）
+      'no-restricted-syntax': [
+        'error',
+        ...restrictedSyntax.filter((entry) => entry !== optionalPropertyWithUndefined),
       ],
     },
   },
