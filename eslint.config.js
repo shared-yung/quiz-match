@@ -9,7 +9,15 @@ import { base } from '@quiz-match/eslint-config/base';
 // （そうしないとルートの設定でプロジェクトのソースが lint されてしまう）。
 export default [
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/.quasar/**', '**/coverage/**', 'quiz-app/**'],
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.quasar/**',
+      '**/coverage/**',
+      // Claude Code がリポジトリ内に作る作業ツリー。別ブランチの古いコードを拾わない
+      '.claude/worktrees/**',
+      'quiz-app/**',
+    ],
   },
   ...base,
   {

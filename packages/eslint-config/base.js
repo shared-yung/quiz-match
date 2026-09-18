@@ -5,6 +5,17 @@ import prettier from 'eslint-config-prettier';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 
 /**
+ * 省略可能なプロパティには `| undefined` を書かせる（docs/architecture/typescript-conventions.md）。
+ * `.vue` では外すので（vue.js）、名前をつけて export している。
+ */
+export const optionalPropertyWithUndefined = {
+  selector:
+    'TSPropertySignature[optional=true] > TSTypeAnnotation > :not(TSUnionType:has(> TSUndefinedKeyword))',
+  message:
+    '省略可能なプロパティには `| undefined` を書いてください（docs/architecture/typescript-conventions.md）',
+};
+
+/**
  * `no-restricted-syntax` で落とす形。
  *
  * C# の enum 相当（判別子を含む）は as const のオブジェクトリテラルで定義し、
@@ -51,6 +62,7 @@ export const restrictedSyntax = [
     message:
       '文字列と直接比較せず、enum 相当のオブジェクトを参照してください（例: state.phase === Phase.Idle）',
   },
+  optionalPropertyWithUndefined,
 ];
 
 /** 全プロジェクト共通の JS/TS ベース設定。Prettier と競合するルールは最後に無効化する。 */
