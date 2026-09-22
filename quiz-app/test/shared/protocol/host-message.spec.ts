@@ -3,6 +3,7 @@ import {
   BuzzRejectedReason,
   hostMessageSchema,
   HostMessageType,
+  JoinRejectedReason,
   QuestionEndReason,
   RevealStopReason,
   type HostMessage,
@@ -74,6 +75,10 @@ const validMessages = {
     scores: [],
     winnerIds: ['p1', 'p2'],
   },
+  [HostMessageType.JoinRejected]: {
+    type: HostMessageType.JoinRejected,
+    reason: JoinRejectedReason.RoomFull,
+  },
 } satisfies Record<HostMessageType, HostMessage>;
 
 describe('Host → Player のメッセージ', () => {
@@ -117,6 +122,15 @@ describe('Host → Player のメッセージ', () => {
       const result = hostMessageSchema.parse({ ...roomState, futureField: 'x' });
 
       expect(result).not.toHaveProperty('futureField');
+    });
+  });
+
+  describe('join/rejected', () => {
+    it('未知の理由を弾く', () => {
+      // 未知の値を弾くことが目的なので、理由はベタ書きする
+      const message = { type: HostMessageType.JoinRejected, reason: 'banned' };
+
+      expect(hostMessageSchema.safeParse(message).success).toBe(false);
     });
   });
 
