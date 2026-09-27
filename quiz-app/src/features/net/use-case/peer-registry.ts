@@ -24,7 +24,7 @@ export const createPeerRegistry = (): PeerRegistry => {
 
   const unlink = (peerId: PeerId): void => {
     const playerId = peerToPlayer.get(peerId);
-    if (playerId == null) return;
+    if (playerId == undefined) return;
 
     peerToPlayer.delete(peerId);
     playerToPeer.delete(playerId);
@@ -35,7 +35,7 @@ export const createPeerRegistry = (): PeerRegistry => {
     // 結び直しても古い向きが残るとどちらかが2箇所を指してしまう
     unlink(peerId);
     const existingPeer = playerToPeer.get(playerId);
-    if (existingPeer != null) unlink(existingPeer);
+    if (existingPeer != undefined) unlink(existingPeer);
 
     peerToPlayer.set(peerId, playerId);
     playerToPeer.set(playerId, peerId);
