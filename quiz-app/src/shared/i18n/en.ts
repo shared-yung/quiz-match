@@ -15,6 +15,19 @@ export const en: MessageSchema = {
     notFound: 'Page not found',
     backToHome: 'Go Home',
   },
+  netSignalingDebug: {
+    title: 'Signaling check (interim, manual)',
+    description:
+      'Host: click "Create offer", then send the resulting text to the player. Player: paste it in, click "Accept offer and create answer", then send the resulting text back to the host. Host: paste it in and click "Accept answer".',
+    remoteTextLabel: 'Text received from the other side',
+    localTextLabel: 'Text to send to the other side (filled in automatically)',
+    createOffer: 'Create offer',
+    acceptOfferAndCreateAnswer: 'Accept offer and create answer',
+    acceptAnswer: 'Accept answer',
+    connectionStateConnecting: 'Connection state: connecting',
+    connectionStateConnected: 'Connection state: connected',
+    connectionStateDisconnected: 'Connection state: disconnected',
+  },
 };
 
 export default en;
