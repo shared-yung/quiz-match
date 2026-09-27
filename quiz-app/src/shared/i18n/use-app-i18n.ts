@@ -18,6 +18,6 @@ export function useAppI18n() {
     ...i18n,
     /** 定義済みのキーのみ受け付ける。存在しないキーはコンパイルエラーになる。 */
     t: (key: MessageKey, named?: Record<string, unknown>): string =>
-      named === undefined ? i18n.t(key) : i18n.t(key, named),
+      named == undefined ? i18n.t(key) : i18n.t(key, named),
   };
 }

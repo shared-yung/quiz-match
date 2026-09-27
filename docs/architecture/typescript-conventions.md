@@ -107,9 +107,11 @@ const judge = (correct: boolean, choice?: WrongAnswerChoice): void =>
 `exactOptionalPropertyTypes` を有効にしているので、`foo?: T` は「**項目が無い**」ことだけを許し、`foo: undefined` は渡せない。どちらで書くかを宣言ごとに判断させると迷ううえ、`?: T` を選んだ所では渡す側が毎回こうなる。
 
 ```ts
-choice === undefined ? { correct } : { correct, choice } // 条件分岐
-...(choice === undefined ? {} : { choice }) // 条件スプレッド
+choice == undefined ? { correct } : { correct, choice } // 条件分岐
+...(choice == undefined ? {} : { choice }) // 条件スプレッド
 ```
+
+**`undefined` との比較は `==`/`!=` を使う。** `===`/`!==` は使わない。`no-restricted-syntax` で強制している。
 
 **各宣言に `| undefined` の理由をコメントしない。** 規約として決まっているので、書けば後続が毎回同じ説明を書くようになる。
 
@@ -139,6 +141,7 @@ choice === undefined ? { correct } : { correct, choice } // 条件分岐
 | `z.literal('x')`                                       | ✅     | `no-restricted-syntax`                         |
 | `case 'x':`                                            | ✅     | `no-restricted-syntax`                         |
 | `x === 'x'` / `x !== 'x'`                              | ✅     | `no-restricted-syntax`                         |
+| `x === undefined` / `x !== undefined`                  | ✅     | `no-restricted-syntax`                         |
 | `foo?: T`（`\| undefined` が無い省略可能なプロパティ） | ✅     | `no-restricted-syntax`                         |
 | default の無い switch                                  | ✅     | `default-case`                                 |
 | case の漏れ                                            | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |

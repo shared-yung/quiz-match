@@ -62,6 +62,11 @@ export const restrictedSyntax = [
     message:
       '文字列と直接比較せず、enum 相当のオブジェクトを参照してください（例: state.phase === Phase.Idle）',
   },
+  {
+    // undefined との比較は == / != に統一する（docs/architecture/typescript-conventions.md）
+    selector: "BinaryExpression[operator=/^[!=]==$/] > Identifier[name='undefined']",
+    message: 'undefined との比較は == / != を使ってください（=== / !== は使いません）',
+  },
   optionalPropertyWithUndefined,
 ];
 

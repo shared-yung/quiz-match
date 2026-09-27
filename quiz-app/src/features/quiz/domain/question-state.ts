@@ -141,7 +141,7 @@ export const characterCount = (text: string): number => characters(text).length;
  */
 export const characterAt = (text: string, position: number): string => {
   const char = characters(text)[position];
-  if (char === undefined) throw new RangeError(`position ${position} is out of range`);
+  if (char == undefined) throw new RangeError(`position ${position} is out of range`);
 
   return char;
 };

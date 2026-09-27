@@ -242,7 +242,7 @@ export const createQuestionSession = ({
     cancelTimer = undefined;
 
     const waiting = waitingFor(current);
-    if (waiting !== undefined) cancelTimer = timer.schedule(waiting.delayMs, waiting.fire);
+    if (waiting != undefined) cancelTimer = timer.schedule(waiting.delayMs, waiting.fire);
   };
 
   const setQuestion = (text: string): void => {
@@ -263,7 +263,7 @@ export const createQuestionSession = ({
 
     if (!result.accepted) {
       const reason = toBuzzRejection(before, playerId, result.reason);
-      if (reason !== undefined) notifier.buzzRejected(playerId, reason);
+      if (reason != undefined) notifier.buzzRejected(playerId, reason);
 
       return;
     }

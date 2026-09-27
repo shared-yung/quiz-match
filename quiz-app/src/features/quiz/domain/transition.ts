@@ -161,7 +161,7 @@ const judgeWrong = (
     rules.onWrongAnswer === OnWrongAnswer.HostDecides ? choice : rules.onWrongAnswer;
 
   // hostDecides はホストがその場で選ぶ。選ばれるまで遷移できない
-  if (behaviour === undefined) return reject(RejectReason.ChoiceRequired);
+  if (behaviour == undefined) return reject(RejectReason.ChoiceRequired);
 
   if (behaviour === WrongAnswerChoice.EndQuestion) {
     return accept({
