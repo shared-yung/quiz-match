@@ -107,9 +107,13 @@ const judge = (correct: boolean, choice?: WrongAnswerChoice): void =>
 `exactOptionalPropertyTypes` を有効にしているので、`foo?: T` は「**項目が無い**」ことだけを許し、`foo: undefined` は渡せない。どちらで書くかを宣言ごとに判断させると迷ううえ、`?: T` を選んだ所では渡す側が毎回こうなる。
 
 ```ts
-choice === undefined ? { correct } : { correct, choice } // 条件分岐
-...(choice === undefined ? {} : { choice }) // 条件スプレッド
+choice == undefined ? { correct } : { correct, choice } // 条件分岐
+...(choice == undefined ? {} : { choice }) // 条件スプレッド
 ```
+
+**`undefined` との比較は `==`/`!=` を使う。** `===`/`!==` は使わない。`no-restricted-syntax` で強制している。
+
+**`null` は使わない。** このコードベースは「値が無い」ことを常に `undefined` で表す。`null` との比較（`===`/`!==`/`==`/`!=` のいずれも）は `no-restricted-syntax` で落ちる。外部ライブラリの型が `null` を返す場合だけ、理由付きの `eslint-disable` で許可する。
 
 **各宣言に `| undefined` の理由をコメントしない。** 規約として決まっているので、書けば後続が毎回同じ説明を書くようになる。
 
@@ -132,19 +136,21 @@ choice === undefined ? { correct } : { correct, choice } // 条件分岐
 
 `packages/eslint-config` の `no-restricted-syntax` と `default-case`、および typecheck で次を落とす。
 
-| 形                                                     | 落ちる | 仕組み                                         |
-| ------------------------------------------------------ | ------ | ---------------------------------------------- |
-| `enum Foo {}`                                          | ✅     | `no-restricted-syntax`                         |
-| `z.enum(['a', 'b'])` / `z.enum([...] as const)`        | ✅     | `no-restricted-syntax`                         |
-| `z.literal('x')`                                       | ✅     | `no-restricted-syntax`                         |
-| `case 'x':`                                            | ✅     | `no-restricted-syntax`                         |
-| `x === 'x'` / `x !== 'x'`                              | ✅     | `no-restricted-syntax`                         |
-| `foo?: T`（`\| undefined` が無い省略可能なプロパティ） | ✅     | `no-restricted-syntax`                         |
-| default の無い switch                                  | ✅     | `default-case`                                 |
-| case の漏れ                                            | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |
-| 型定義側の `{ type: 'x' }`                             | ❌     | 規約のみ                                       |
-| `type Foo = 'a' \| 'b'`（enum 相当なのに素のユニオン） | ❌     | 規約のみ                                       |
-| default はあるが `ExhaustiveError` を投げていない      | ❌     | 規約のみ                                       |
+| 形                                                      | 落ちる | 仕組み                                         |
+| ------------------------------------------------------- | ------ | ---------------------------------------------- |
+| `enum Foo {}`                                           | ✅     | `no-restricted-syntax`                         |
+| `z.enum(['a', 'b'])` / `z.enum([...] as const)`         | ✅     | `no-restricted-syntax`                         |
+| `z.literal('x')`                                        | ✅     | `no-restricted-syntax`                         |
+| `case 'x':`                                             | ✅     | `no-restricted-syntax`                         |
+| `x === 'x'` / `x !== 'x'`                               | ✅     | `no-restricted-syntax`                         |
+| `x === undefined` / `x !== undefined`                   | ✅     | `no-restricted-syntax`                         |
+| `x === null` / `x !== null` / `x == null` / `x != null` | ✅     | `no-restricted-syntax`                         |
+| `foo?: T`（`\| undefined` が無い省略可能なプロパティ）  | ✅     | `no-restricted-syntax`                         |
+| default の無い switch                                   | ✅     | `default-case`                                 |
+| case の漏れ                                             | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |
+| 型定義側の `{ type: 'x' }`                              | ❌     | 規約のみ                                       |
+| `type Foo = 'a' \| 'b'`（enum 相当なのに素のユニオン）  | ❌     | 規約のみ                                       |
+| default はあるが `ExhaustiveError` を投げていない       | ❌     | 規約のみ                                       |
 
 **意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）、空文字との比較（`x === ''`）、`.vue` の省略可能なプロパティ（props の型。上の「例外」）。
 

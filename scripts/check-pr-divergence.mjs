@@ -15,7 +15,7 @@ const HEADING = '## 計画との差異';
 function extractSection(body) {
   const lines = body.replace(/\r\n/g, '\n').split('\n');
   const start = lines.findIndex((l) => l.trim() === HEADING);
-  if (start === -1) return null;
+  if (start === -1) return undefined;
 
   const rest = lines.slice(start + 1);
   const end = rest.findIndex((l) => l.startsWith('## '));
@@ -30,7 +30,7 @@ process.stdin.on('end', () => {
   const extractMode = process.argv.includes('--extract');
   const section = extractSection(raw);
 
-  if (section === null) {
+  if (section == undefined) {
     if (extractMode) process.exit(0);
     console.error(`PR 本文に「${HEADING}」の節がありません。`);
     console.error('テンプレートの節を消さずに、計画とのずれと経緯を書いてください。');
