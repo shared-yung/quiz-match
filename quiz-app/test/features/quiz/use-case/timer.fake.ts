@@ -36,7 +36,7 @@ export const createFakeTimer = (start: EpochMs = epochMsSchema.parse(1_000)): Fa
   const advance = (ms: DurationMs): void => {
     const target = addMs(current, ms);
 
-    for (let next = nextDue(target); next !== undefined; next = nextDue(target)) {
+    for (let next = nextDue(target); next != undefined; next = nextDue(target)) {
       const due = next;
       queue = queue.filter((scheduled) => scheduled !== due);
       current = due.at;
