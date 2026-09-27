@@ -42,6 +42,43 @@ bun x lefthook install
 
 `typecheck` と `test` は `bun run --filter '*'` で各 workspace に委譲している。スクリプトを定義していない workspace は単に飛ばされる。
 
+## 開発サーバーを起動する
+
+Claude Code の Browser pane（`preview_start`）から `quiz-app` の `bun run dev` を起動する設定を `.claude/launch.json` に置いている。
+
+```json
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "quiz-app-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd quiz-app && bun run dev"],
+      "port": 9000
+    }
+  ]
+}
+```
+
+`runtimeExecutable` に `bun` を指定し `runtimeArgs` で `--cwd quiz-app run dev` のように渡す形は**動かない**（`bun run` がその引数を独自解釈してヘルプを表示してしまう）。`sh -c "cd quiz-app && ..."` も、Windows 版 Claude Code の起動環境に `sh` が無いため使えない。`cmd /c` で `cd` してから実行する形にしている。
+
+## 既知の問題: Windows で `bun install` が特定のパッケージだけ展開に失敗する
+
+**症状**: `bun install` で `@quasar/extras` や `@quasar/quasar-app-extension-testing-unit-vitest` など、特定のパッケージだけ `ENOENT: failed to link package ... (copyfile)` で展開に失敗する。`bun pm cache rm` からの再インストールや `--backend=copyfile` / `--backend=symlink` を試しても再現し続ける。
+
+**原因**: Windows の `MAX_PATH`（260文字）。`bun install --verbose` で見ると、キャッシュ側の読み込みには long path 対応の `\\?\` プレフィックスが使われるが、**リンク先の書き込みには付かない**。このリポジトリは Claude Code のセッションごとに `.claude/worktrees/<セッション名>/` という git worktree を切るため、`node_modules` までのベースパスが深い。そこに、これらのパッケージが持つ長いフォント/テンプレートファイル名（100文字超）が重なると、リンク先の絶対パスが260文字を超えて失敗する。他の大半のパッケージで再現しないのは、単にファイル名がここまで長くないため。
+
+**恒久対処**: Windows の長いパスサポートを有効にする（管理者権限が要る。Claude Code からは実行できないので、開発者自身が行う）。
+
+```powershell
+# 管理者権限の PowerShell で実行
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+```
+
+再起動は不要（新規プロセスから有効）。有効化後は `rm -rf node_modules && bun install` で正常に展開されるはずである。
+
+**暫定回避**（有効化できない環境で、動作確認だけ急ぐとき）: `quiz-app/quasar.config.ts` の `extras` 配列を一時的にコメントアウトしてから `bun run dev` する。フォント/アイコンが読み込めないだけで、それ以外の動作確認は問題なくできる。**確認が終わったら必ず元に戻す。**
+
 ## 改行コード
 
 **リポジトリ内も作業ツリーも LF に統一する。** 強制しているのは `.gitattributes` の `* text=auto eol=lf`。
