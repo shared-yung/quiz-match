@@ -12,7 +12,9 @@ pre-commit:
     lint-quiz-app:
       root: 'quiz-app/'
       glob: '*.{js,ts,vue}'
-      run: bun x eslint --fix {staged_files} && git add {staged_files}
+      # lefthook の run: は && や $() を含む複雑なシェル構文を正しく解釈できないため、
+      # 専用スクリプトに切り出す(詳細は scripts/lint-quiz-app.sh、issue #68)
+      run: sh ../scripts/lint-quiz-app.sh {staged_files}
     format:
       glob: '*.{js,mjs,cjs,ts,vue,json,md,yml,yaml,scss,html}'
       run: bun x prettier --write {staged_files} && git add {staged_files}
