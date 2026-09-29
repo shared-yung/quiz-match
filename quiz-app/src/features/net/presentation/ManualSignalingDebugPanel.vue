@@ -1,3 +1,18 @@
+<script setup lang="ts">
+import { useAppI18n } from '@/shared/i18n';
+import { useManualSignaling } from './composables/use-manual-signaling';
+
+const { t } = useAppI18n();
+const {
+  remoteText,
+  localText,
+  connectionStateKey,
+  createOffer,
+  acceptOfferAndCreateAnswer,
+  acceptAnswer,
+} = useManualSignaling();
+</script>
+
 <template>
   <div class="q-pa-md q-gutter-md" style="max-width: 480px">
     <div class="text-h6">{{ t('netSignalingDebug.title') }}</div>
@@ -23,18 +38,3 @@
     <div class="text-body1">{{ t(connectionStateKey) }}</div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { useAppI18n } from '@/shared/i18n';
-import { useManualSignaling } from './composables/use-manual-signaling';
-
-const { t } = useAppI18n();
-const {
-  remoteText,
-  localText,
-  connectionStateKey,
-  createOffer,
-  acceptOfferAndCreateAnswer,
-  acceptAnswer,
-} = useManualSignaling();
-</script>

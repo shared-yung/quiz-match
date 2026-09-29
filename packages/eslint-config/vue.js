@@ -43,6 +43,9 @@ export const vue = [
         'error',
         ...restrictedSyntax.filter((entry) => entry !== optionalPropertyWithUndefined),
       ],
+
+      // template が参照する識別子の宣言を先に読めるようにする（docs/architecture/vue-sfc.md）
+      'vue/block-order': ['error', { order: ['script', 'template', 'style'] }],
     },
   },
   prettier,
