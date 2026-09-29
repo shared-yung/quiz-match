@@ -1,3 +1,9 @@
+<script setup lang="ts">
+import { useAppI18n } from '@/shared/i18n';
+
+const { t } = useAppI18n();
+</script>
+
 <template>
   <q-page class="flex flex-center">
     <div class="column items-center q-gutter-md">
@@ -6,9 +12,3 @@
     </div>
   </q-page>
 </template>
-
-<script setup lang="ts">
-import { useAppI18n } from '@/shared/i18n';
-
-const { t } = useAppI18n();
-</script>

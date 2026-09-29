@@ -24,6 +24,7 @@
 - [i18n の方針](architecture/i18n.md) — 置き場所と、キーを型で縛る理由
 - [TypeScript の書き方の規約](architecture/typescript-conventions.md) — enum 相当の値の定義と、どこまで機械的に強制しているか
 - [ファクトリー関数とコンポーザブル](architecture/factories-and-composables.md) — `create～` と `use～` の見分け方、実装のルール、置き場所
+- [Vue SFC の書き方](architecture/vue-sfc.md) — ブロックの順序
 
 ## ツール
 
