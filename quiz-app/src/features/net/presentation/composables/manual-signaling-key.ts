@@ -1,5 +1,5 @@
 import type { InjectionKey } from 'vue';
-import type { Signaling } from '../../domain';
+import type { Signaling } from '@/features/net/domain';
 
 /**
  * 手動シグナリングの `Signaling` 実装を provide/inject するためのキー。

@@ -132,9 +132,25 @@ choice == undefined ? { correct } : { correct, choice } // 条件分岐
 
 **`undefined` の項目を実行時に落とすユーティリティ（`omitUndefined` など）は作らない。** `Object.entries` で組み直す形になり、戻り値を型アサーションで復元することになる。型と実行時の値がずれる（省略可能なキーが戻り値の型から消え、値が入っていても読めない）。宣言側に `| undefined` を書けば要らない。
 
+## import のパス
+
+**相対パスは `./` と `../`（1階層上）まで。2階層以上さかのぼるときは `@/` から書く。**
+
+```ts
+import { createPeerRegistry } from './peer-registry'; // 同じフォルダ
+import type { PeerId } from '../domain'; // use-case から自 feature の domain
+import { ConnectionState } from '@/features/net/domain'; // presentation/composables から自 feature の domain
+```
+
+- `../../domain` のような深い相対パスは、どこを指しているかを数えないと分からず、ファイルを移動すると壊れる。`@/` なら位置が一目で分かる
+- 1階層なら相対のままでよい。同じ層の中（`./`）と、層のすぐ外（use-case / infrastructure から `../domain`）が典型
+- `export … from` も同じ規則に従う
+
+**`no-restricted-imports` を足すときの注意。** flat config は、後段で同じルールを指定すると options を丸ごと置き換える。プロジェクト側でこのルールに項目を足すと、深い相対パスの禁止が黙って消える。
+
 ## どこまで機械的に強制しているか
 
-`packages/eslint-config` の `no-restricted-syntax` と `default-case`、および typecheck で次を落とす。
+`packages/eslint-config` の `no-restricted-syntax` / `no-restricted-imports` / `default-case`、および typecheck で次を落とす。
 
 | 形                                                      | 落ちる | 仕組み                                         |
 | ------------------------------------------------------- | ------ | ---------------------------------------------- |
@@ -146,15 +162,17 @@ choice == undefined ? { correct } : { correct, choice } // 条件分岐
 | `x === undefined` / `x !== undefined`                   | ✅     | `no-restricted-syntax`                         |
 | `x === null` / `x !== null` / `x == null` / `x != null` | ✅     | `no-restricted-syntax`                         |
 | `foo?: T`（`\| undefined` が無い省略可能なプロパティ）  | ✅     | `no-restricted-syntax`                         |
+| `import … from '../../x'` / `export … from '../../x'`   | ✅     | `no-restricted-imports`                        |
 | default の無い switch                                   | ✅     | `default-case`                                 |
 | case の漏れ                                             | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |
 | 型定義側の `{ type: 'x' }`                              | ❌     | 規約のみ                                       |
 | `type Foo = 'a' \| 'b'`（enum 相当なのに素のユニオン）  | ❌     | 規約のみ                                       |
 | default はあるが `ExhaustiveError` を投げていない       | ❌     | 規約のみ                                       |
+| 動的 `import('../../x')` と `vi.mock('../../x')`        | ❌     | 規約のみ                                       |
 
 **意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）、空文字との比較（`x === ''`）、`.vue` の省略可能なプロパティ（props の型。上の「例外」）。
 
-**検出できないものが3つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。**強制していないものを強制しているつもりにならないこと。**
+**検出できないものが4つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。動的 `import()` と `vi.mock()` のパスは `no-restricted-imports` の対象外。**強制していないものを強制しているつもりにならないこと。**
 
 **値の集合を外部が持つ比較は、理由つきの disable コメントで除外する。** 例: Quasar が生成する `src/router/index.ts` の `import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history'`。取りうる値を決めているのは Quasar で、こちらで定数を定義しても何も保証しない。
 

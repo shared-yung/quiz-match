@@ -106,6 +106,19 @@ export const base = [
 
       'no-restricted-syntax': ['error', ...restrictedSyntax],
 
+      // 相対パスは ../ まで。2階層以上さかのぼるなら @/ で書く（docs/architecture/typescript-conventions.md）
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: String.raw`^(\.\./){2,}`,
+              message: '2階層以上さかのぼる相対パスは使わず、`@/` から書いてください',
+            },
+          ],
+        },
+      ],
+
       // switch には default を必ず書く。判別可能ユニオンや enum 相当で分岐する switch は
       // default で ExhaustiveError を投げ、case の漏れを never 引数で typecheck に落とさせる
       'default-case': 'error',
