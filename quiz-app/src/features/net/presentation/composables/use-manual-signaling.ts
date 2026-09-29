@@ -1,27 +1,23 @@
-import { computed, inject, onUnmounted, ref } from 'vue';
+import { computed, onScopeDispose, ref } from 'vue';
 import { ConnectionState } from '@/features/net/domain';
-import { manualSignalingKey } from './manual-signaling-key';
+import { useSignaling } from './use-signaling';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 
 /**
  * 手動シグナリング（SDP のコピー&ペースト）の確認用コンポーザブル
  * （quiz-app/docs/adr/0003-signaling.md）。setup の同期実行中に呼ぶ。
- * 使う `Signaling` の実体は provide/inject で受け取り、Vue に依存しない
+ * 使う `Signaling` の実体は合成ルートが provide したものを受け取り、
  * infrastructure を直接 import しない（docs/architecture/onion-layers.md）。
  */
 export const useManualSignaling = () => {
-  const signaling = inject(manualSignalingKey);
-  if (signaling == undefined) {
-    throw new Error(
-      'signaling が provide されていません（src/boot/net-signaling.ts を確認してください）',
-    );
-  }
+  const signaling = useSignaling();
 
   const state = ref<ConnectionState>(signaling.connectionState());
-  const unsubscribe = signaling.onConnectionStateChanged((next) => {
-    state.value = next;
-  });
-  onUnmounted(unsubscribe);
+  onScopeDispose(
+    signaling.onConnectionStateChanged((next) => {
+      state.value = next;
+    }),
+  );
 
   const remoteText = ref('');
   const localText = ref('');

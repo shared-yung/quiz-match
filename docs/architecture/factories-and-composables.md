@@ -53,9 +53,8 @@ export const createQuestionSession = ({
 ```ts
 // features/quiz/presentation/composables/use-question-state.ts（例）
 export const useQuestionState = () => {
-  // 使うサービスは自分で作らず、合成ルートが provide したものを受け取る
-  const events = inject(questionEventsKey);
-  if (events === undefined) throw new Error('questionEventsKey が provide されていません');
+  // 使うサービスは自分で作らず、合成ルートが provide したものを受け取る（下の「provide / inject」）
+  const events = useQuestionEvents();
 
   const state = shallowRef(events.current());
   // 購読の解除はスコープの破棄に結びつける
@@ -72,6 +71,44 @@ export const useQuestionState = () => {
 - **使うサービスは自分で生成せず、`inject` で受け取る。** provide するのは合成ルート。コンポーザブルの中でファクトリーを呼ぶと、画面ごとに別のインスタンスができる
 - **戻り値は ref / computed をまとめたオブジェクト。** 外から書き換えさせない状態は `readonly` / `computed` で返す
 - **後始末は `onScopeDispose` で行う。** `onUnmounted` と違い、コンポーネントの外の effect scope でも動く
+
+## provide / inject
+
+**`InjectionKey` は export しない。** キーを定義したファイルの中に閉じ、同じファイルから provider と injector の2つの関数だけを export する。
+
+```ts
+// features/net/presentation/composables/use-signaling.ts
+const signalingKey: InjectionKey<Signaling> = Symbol('signaling');
+
+export const provideSignaling = (app: App, signaling: Signaling): void => {
+  app.provide(signalingKey, signaling);
+};
+
+export const useSignaling = (): Signaling => {
+  const signaling = inject(signalingKey);
+  if (signaling == undefined) {
+    throw new Error(
+      'Signaling が provide されていません（合成ルートで provideSignaling を呼んでください）',
+    );
+  }
+
+  return signaling;
+};
+```
+
+```ts
+// boot/net-signaling.ts（合成ルート）
+provideSignaling(app, createWebrtcManualSignaling({ … }));
+
+// コンポーザブル
+const signaling = useSignaling();
+```
+
+- **キーを持っていれば、どこからでも別の値を provide できてしまう。** provide の経路をこのファイルの関数に絞る
+- **「provide されていない」ときの検査は injector に1回だけ書く。** 呼び出し側は `undefined` を扱わずに済む
+- **injector は `use～`。** `inject` は setup コンテキストでしか呼べないので、コンポーザブルと同じ扱いにする。ファイル名も injector に合わせて `use-xxx.ts`
+- **provider は `provide～`。** 何も作らない動詞の関数。合成ルート（boot / feature の `index.ts`）から、`App` を受け取ってアプリ全体に provide する
+- **provide する型は port にする。** 実装（手動シグナリング / SignalR など）を差し替えてもキーと関数の名前が変わらないようにする
 
 ## 依存の向き
 
@@ -94,20 +131,22 @@ Pinia の `defineStore` が返す `useXxxStore` もコンポーザブルとし�
 
 ## どこまで機械的に強制しているか
 
-`packages/eslint-config/onion.js` で次を落とす。
+`packages/eslint-config/onion.js` と `base.js` で次を落とす。
 
-| 形                                                                   | 落ちる | 仕組み                            |
-| -------------------------------------------------------------------- | ------ | --------------------------------- |
-| domain で vue 系を import                                            | ✅     | `boundaries/external`（zod のみ） |
-| use-case / infrastructure / shared で vue 系を import                | ✅     | `boundaries/external`             |
-| domain / use-case / infrastructure / shared から shared-ui を import | ✅     | `boundaries/element-types`        |
-| domain / use-case / infrastructure / shared で `useXxx` を宣言       | ✅     | `no-restricted-syntax`            |
-| presentation の中の `createXxx` が Vue を使っている                  | ❌     | 規約のみ                          |
-| コンポーザブルを setup の外で呼ぶ                                    | ❌     | 規約のみ（実行時の警告だけ）      |
-| コンポーザブルにビジネスロジックが入る                               | ❌     | レビュー                          |
+| 形                                                                              | 落ちる | 仕組み                              |
+| ------------------------------------------------------------------------------- | ------ | ----------------------------------- |
+| domain で vue 系を import                                                       | ✅     | `boundaries/external`（zod のみ）   |
+| use-case / infrastructure / shared で vue 系を import                           | ✅     | `boundaries/external`               |
+| domain / use-case / infrastructure / shared から shared-ui を import            | ✅     | `boundaries/element-types`          |
+| domain / use-case / infrastructure / shared で `useXxx` を宣言                  | ✅     | `no-restricted-syntax`              |
+| `export const k: InjectionKey<T> = …` / `export const k = … as InjectionKey<T>` | ✅     | `no-restricted-syntax`（`base.js`） |
+| 後置の `export { k }` で `InjectionKey` を出す                                  | ❌     | 規約のみ                            |
+| presentation の中の `createXxx` が Vue を使っている                             | ❌     | 規約のみ                            |
+| コンポーザブルを setup の外で呼ぶ                                               | ❌     | 規約のみ（実行時の警告だけ）        |
+| コンポーザブルにビジネスロジックが入る                                          | ❌     | レビュー                            |
 
 vue 系は `vue`・`pinia`・`vue-router`・`vue-i18n`・`@vueuse/*`。
 
-**強制していないものを強制しているつもりにならないこと。** `useXxx` の禁止が見るのは関数の宣言（`function useXxx` / `const useXxx =`）だけで、オブジェクトのプロパティやクラスのメソッドは見ない。
+**強制していないものを強制しているつもりにならないこと。** `useXxx` の禁止が見るのは関数の宣言（`function useXxx` / `const useXxx =`）だけで、オブジェクトのプロパティやクラスのメソッドは見ない。`InjectionKey` の禁止が見るのは、宣言と同時の export で型注釈か `as` に `InjectionKey` と書いたものだけ。
 
 **`no-restricted-syntax` を足すときの注意。** 層ごとの `useXxx` の禁止は、`base.js` の禁止（enum 相当など）を `restrictedSyntax` として引き継いだうえで足している。flat config は、後段で同じルールを指定すると options を丸ごと置き換えるため。プロジェクト側で `no-restricted-syntax` を足すときも同じようにしないと、enum 相当の禁止が黙って消える。

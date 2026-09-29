@@ -73,6 +73,16 @@ export const restrictedSyntax = [
     message:
       'null とは比較しないでください（このコードベースは undefined のみを使います）。外部ライブラリの定義由来なら理由付きの eslint-disable で許可してください',
   },
+  // InjectionKey は定義したファイルに閉じ、同じファイルの provideXxx / useXxx だけを export する
+  // （docs/architecture/factories-and-composables.md）。後置の `export { key }` は検出できない
+  ...[
+    "ExportNamedDeclaration > VariableDeclaration > VariableDeclarator[id.typeAnnotation.typeAnnotation.typeName.name='InjectionKey']",
+    "ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > TSAsExpression[typeAnnotation.typeName.name='InjectionKey']",
+  ].map((selector) => ({
+    selector,
+    message:
+      'InjectionKey は export せず、同じファイルで provideXxx / useXxx を export してください（docs/architecture/factories-and-composables.md）',
+  })),
   optionalPropertyWithUndefined,
 ];
 
