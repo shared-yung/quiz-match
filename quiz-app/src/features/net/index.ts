@@ -5,5 +5,5 @@
  * （docs/architecture/module-entry.md）。
  */
 export { createWebrtcManualSignaling } from './infrastructure/webrtc-manual-signaling';
-export { manualSignalingKey } from './presentation/composables/manual-signaling-key';
+export { provideSignaling } from './presentation/composables/use-signaling';
 export { default as ManualSignalingDebugPanel } from './presentation/ManualSignalingDebugPanel.vue';

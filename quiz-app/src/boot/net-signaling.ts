@@ -1,5 +1,5 @@
 import { defineBoot } from '#q-app';
-import { createWebrtcManualSignaling, manualSignalingKey } from '@/features/net';
+import { createWebrtcManualSignaling, provideSignaling } from '@/features/net';
 
 /**
  * 手動シグナリング（SDP のコピー&ペースト）の `Signaling` 実装を組み立てて provide する
@@ -11,5 +11,5 @@ export default defineBoot(({ app }) => {
       new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }),
   });
 
-  app.provide(manualSignalingKey, signaling);
+  provideSignaling(app, signaling);
 });
