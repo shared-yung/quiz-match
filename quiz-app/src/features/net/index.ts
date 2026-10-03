@@ -4,5 +4,5 @@
  * ここで use-case に infrastructure の実装を注入する（DI の組み立て点）。
  */
 export { createWebrtcManualSignaling } from './infrastructure/webrtc-manual-signaling';
-export { manualSignalingKey } from './presentation/composables/manual-signaling-key';
+export { provideSignaling } from './presentation/composables/use-signaling';
 export { default as ManualSignalingDebugPanel } from './presentation/ManualSignalingDebugPanel.vue';
