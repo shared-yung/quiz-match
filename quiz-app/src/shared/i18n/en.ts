@@ -1,4 +1,4 @@
-import type { MessageSchema } from './index';
+import type { MessageSchema } from './message-schema';
 
 /** 英語のメッセージ。ja.ts と同じ構造であることを型で保証している。 */
 export const en: MessageSchema = {

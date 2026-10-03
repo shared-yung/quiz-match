@@ -11,7 +11,7 @@ import {
   type Room,
   type RoomNotifier,
   type RuleSet,
-} from '../domain';
+} from '@/features/room/domain';
 
 /**
  * ルームをホスト側で受け持つセッション。

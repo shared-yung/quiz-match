@@ -1,5 +1,5 @@
 import { useI18n } from 'vue-i18n';
-import type { MessageKey } from './index';
+import type { MessageKey } from './message-schema';
 
 /**
  * キーを型で縛った `t` を返す `useI18n` のラッパー。

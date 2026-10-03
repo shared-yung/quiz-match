@@ -134,19 +134,25 @@ choice == undefined ? { correct } : { correct, choice } // 条件分岐
 
 ## import のパス
 
-**相対パスは `./` と `../`（1階層上）まで。2階層以上さかのぼるときは `@/` から書く。**
+**import は「自分からの位置」ではなく「何に依存しているか」で書く。** ディレクトリの外へ出る import は `@/` から依存先の要素（層・feature・shared のモジュール）を名指しし、相対パスは同じディレクトリ以下のファイルを直接指すときだけ使う。
 
 ```ts
-import { createPeerRegistry } from './peer-registry'; // 同じフォルダ
-import type { PeerId } from '../domain'; // use-case から自 feature の domain
+import { createPeerRegistry } from './peer-registry'; // 同じディレクトリのファイル
+import type { PeerId } from '@/features/net/domain'; // use-case から自 feature の domain
 import { ConnectionState } from '@/features/net/domain'; // presentation/composables から自 feature の domain
 ```
 
-- `../../domain` のような深い相対パスは、どこを指しているかを数えないと分からず、ファイルを移動すると壊れる。`@/` なら位置が一目で分かる
-- 1階層なら相対のままでよい。同じ層の中（`./`）と、層のすぐ外（use-case / infrastructure から `../domain`）が典型
+- **同じ依存先は、どこから import しても同じ書き方になる。** `../domain` と `../../domain` のように、import する側の深さで書き方が変わらない
+- **依存の向きが import の行だけで読める。** `@/features/net/domain` を見れば、どの層に依存しているかが分かり、grep もできる。オニオンの層構成でレビューしたいのはこの向き
+- **要素の中でファイルを動かしても、要素の外への import は壊れない**
+- **自分のディレクトリの入口（`'.'` / `'./index'`）は import しない。** 入口は外から入るためのもので、中から入口を経由すると循環 import の原因になる
 - `export … from` も同じ規則に従う
 
-**`no-restricted-imports` を足すときの注意。** flat config は、後段で同じルールを指定すると options を丸ごと置き換える。プロジェクト側でこのルールに項目を足すと、深い相対パスの禁止が黙って消える。
+### なぜ「何階層まで」で線を引かないのか
+
+最初は「2階層以上さかのぼる相対パスを禁止する」としていたが、深さは依存の意味をとらえていない。`../domain` は1階層でも層の境界（use-case → domain）をまたぐ一方、`../../` は同じ層の中のサブフォルダ間でも起きる。深さで線を引くと、取りこぼしと過剰な検出が両方起きる。
+
+**`no-restricted-imports` を足すときの注意。** flat config は、後段で同じルールを指定すると options を丸ごと置き換える。プロジェクト側でこのルールに項目を足すと、ここの禁止が黙って消える。
 
 ## どこまで機械的に強制しているか
 
@@ -162,17 +168,19 @@ import { ConnectionState } from '@/features/net/domain'; // presentation/composa
 | `x === undefined` / `x !== undefined`                   | ✅     | `no-restricted-syntax`                         |
 | `x === null` / `x !== null` / `x == null` / `x != null` | ✅     | `no-restricted-syntax`                         |
 | `foo?: T`（`\| undefined` が無い省略可能なプロパティ）  | ✅     | `no-restricted-syntax`                         |
-| `import … from '../../x'` / `export … from '../../x'`   | ✅     | `no-restricted-imports`                        |
+| `import … from '../x'` / `export … from '../x'`         | ✅     | `no-restricted-imports`                        |
+| `import … from '.'` / `'./'` / `'./index'`              | ✅     | `no-restricted-imports`                        |
 | default の無い switch                                   | ✅     | `default-case`                                 |
 | case の漏れ                                             | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |
 | 型定義側の `{ type: 'x' }`                              | ❌     | 規約のみ                                       |
 | `type Foo = 'a' \| 'b'`（enum 相当なのに素のユニオン）  | ❌     | 規約のみ                                       |
 | default はあるが `ExhaustiveError` を投げていない       | ❌     | 規約のみ                                       |
-| 動的 `import('../../x')` と `vi.mock('../../x')`        | ❌     | 規約のみ                                       |
+| 動的 `import('../x')` と `vi.mock('../x')`              | ❌     | 規約のみ                                       |
+| `@/` で自分の要素の入口を import する                   | ❌     | 規約のみ                                       |
 
 **意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）、空文字との比較（`x === ''`）、`.vue` の省略可能なプロパティ（props の型。上の「例外」）。
 
-**検出できないものが4つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。動的 `import()` と `vi.mock()` のパスは `no-restricted-imports` の対象外。**強制していないものを強制しているつもりにならないこと。**
+**検出できないものが5つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。動的 `import()` と `vi.mock()` のパスは `no-restricted-imports` の対象外。`no-restricted-imports` は書かれた文字列しか見ないので、`@/features/net/domain` が自分の要素の入口かどうかは分からない。**強制していないものを強制しているつもりにならないこと。**
 
 **値の集合を外部が持つ比較は、理由つきの disable コメントで除外する。** 例: Quasar が生成する `src/router/index.ts` の `import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history'`。取りうる値を決めているのは Quasar で、こちらで定数を定義しても何も保証しない。
 
