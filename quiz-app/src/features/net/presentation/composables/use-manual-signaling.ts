@@ -1,5 +1,5 @@
 import { computed, inject, onUnmounted, ref } from 'vue';
-import { ConnectionState } from '../../domain';
+import { ConnectionState } from '@/features/net/domain';
 import { manualSignalingKey } from './manual-signaling-key';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 

@@ -106,6 +106,26 @@ export const base = [
 
       'no-restricted-syntax': ['error', ...restrictedSyntax],
 
+      // 相対パスは同じディレクトリ以下のファイルを直接指すときだけ。ディレクトリの外へ出る
+      // import は @/ から依存先の要素を名指しする（docs/architecture/typescript-conventions.md）
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: String.raw`^\.\./`,
+              message:
+                '親ディレクトリへの相対パスは使わず、`@/` から依存先の要素を名指ししてください（例: `@/features/net/domain`）',
+            },
+            {
+              regex: String.raw`^\.(/(index(\.[cm]?[jt]s)?)?)?$`,
+              message:
+                '自分のディレクトリの入口（index.ts）を import しないでください。同じディレクトリのファイルを直接指します（循環 import の原因になるため）',
+            },
+          ],
+        },
+      ],
+
       // switch には default を必ず書く。判別可能ユニオンや enum 相当で分岐する switch は
       // default で ExhaustiveError を投げ、case の漏れを never 引数で typecheck に落とさせる
       'default-case': 'error',
