@@ -44,6 +44,7 @@ scripts/          hook と CI から呼ぶシェルスクリプト
 | enum 相当の値、import のパスの書き方  | [docs/architecture/typescript-conventions.md](docs/architecture/typescript-conventions.md)       |
 | `create～` と `use～` の書き分け      | [docs/architecture/factories-and-composables.md](docs/architecture/factories-and-composables.md) |
 | `.vue` のブロックの順序               | [docs/architecture/vue-sfc.md](docs/architecture/vue-sfc.md)                                     |
+| 入口（index.ts）の置き場所と中身      | [docs/architecture/module-entry.md](docs/architecture/module-entry.md)                           |
 | セットアップ、プロジェクト追加手順    | [docs/tooling/setup.md](docs/tooling/setup.md)                                                   |
 | ESLint の層強制、違反時の直し方       | [docs/tooling/eslint-boundaries.md](docs/tooling/eslint-boundaries.md)                           |
 | テストの書き分け                      | [docs/tooling/testing.md](docs/tooling/testing.md)                                               |
