@@ -21,7 +21,7 @@ import {
   type Timer,
   type TransitionResult,
   type WrongAnswerChoice,
-} from '../domain';
+} from '@/features/quiz/domain';
 
 /**
  * 出題の進行をホスト側で受け持つセッション。

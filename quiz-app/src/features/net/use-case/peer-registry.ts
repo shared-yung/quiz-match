@@ -1,5 +1,5 @@
 import type { PlayerId } from '@/shared/identity';
-import type { PeerId } from '../domain';
+import type { PeerId } from '@/features/net/domain';
 
 /**
  * `PeerId`（通信の接続）と `PlayerId`（ドメインのプレイヤー）の対応表。

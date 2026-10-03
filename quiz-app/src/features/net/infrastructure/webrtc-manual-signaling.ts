@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ConnectionState, type Signaling } from '../domain';
+import { ConnectionState, type Signaling } from '@/features/net/domain';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 
 /** RTCSdpType のうち、このモジュールが実際にやり取りする2種類。 */
