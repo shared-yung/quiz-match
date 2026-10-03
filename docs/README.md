@@ -25,6 +25,7 @@
 - [TypeScript の書き方の規約](architecture/typescript-conventions.md) — enum 相当の値の定義、import のパス、どこまで機械的に強制しているか
 - [ファクトリー関数とコンポーザブル](architecture/factories-and-composables.md) — `create～` と `use～` の見分け方、実装のルール、provide / inject、置き場所
 - [Vue SFC の書き方](architecture/vue-sfc.md) — ブロックの順序
+- [モジュールの入口（index.ts）](architecture/module-entry.md) — 入口の置き場所と中身、feature 直下の入口が出すもの
 
 ## ツール
 
