@@ -38,6 +38,23 @@ const composableDeclaration = {
     'use～ は Vue に依存するコンポーザブルの名前です。この層では create～ か動詞で名付けてください（docs/architecture/factories-and-composables.md）',
 };
 
+/**
+ * 要素の入口（index.ts）に書いてよいのは、名前を明示した再 export だけ。
+ * 入口は公開 API の目次で、`export *` は公開面を見えなくし、実装は循環 import の温床になる。
+ */
+const entryReexportOnly = [
+  {
+    selector: 'Program > ExportAllDeclaration',
+    message:
+      '入口で `export *` は使わず、公開するものを名前で列挙してください（docs/architecture/module-entry.md）',
+  },
+  {
+    selector: 'Program > :not(ExportNamedDeclaration[source], ExportAllDeclaration)',
+    message:
+      '入口（index.ts）には `export { a, type B } from "./x"` 形式の再 export だけを書いてください。実装は別ファイルに置きます（docs/architecture/module-entry.md）',
+  },
+];
+
 export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
   const own = (type) => [type, { feature: '${from.feature}' }];
 
@@ -215,6 +232,15 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
         // base の禁止を引き継いだうえで足す。flat config は同じルールの options を
         // 丸ごと置き換えるので、展開しないと enum 相当の禁止がここで消える
         'no-restricted-syntax': ['error', ...restrictedSyntax, composableDeclaration],
+      },
+    },
+    {
+      // 要素の入口（index.ts）には、名前を明示した再 export だけを書く
+      // （docs/architecture/module-entry.md）。上の use～ の禁止より後ろに置き、
+      // 入口ではこちらで options を置き換える（入口には宣言を書かないので use～ の禁止は要らない）
+      files: [`${root}/features/**/index.ts`, `${root}/shared/**/index.ts`],
+      rules: {
+        'no-restricted-syntax': ['error', ...restrictedSyntax, ...entryReexportOnly],
       },
     },
   ];
