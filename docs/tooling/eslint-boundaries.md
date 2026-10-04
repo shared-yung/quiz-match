@@ -52,6 +52,15 @@ export default [
 
 **Vue に依存する共有コードへの import。** domain / use-case / infrastructure / shared から `@/shared/i18n` や `@/shared/composables` を参照すると落ちる（要素 `shared-ui`）。文言が要るなら、use-case はキーや値を返し、翻訳は presentation で行う。
 
+## 入口以外への import
+
+`boundaries/entry-point` で、他の要素の内部ファイルへの import を落とす（[モジュールの入口](../architecture/module-entry.md)）。層の向きとしては許される import でも、`@/features/net/domain/peer` のように入口を飛ばすと落ちる。`@/features/net/domain` に直す。必要なものが入口に無ければ入口に足す。
+
+- 同じ要素の中の import は boundaries が対象外にする
+- `test/` は `files` の上書きで `entry-point` を切っている。テストが内部の関数を検証するため
+- shared はモジュール単位の要素にしている。`shared/<module>/`（フォルダ）は入口だけを、`shared/<module>.ts`（ファイル1つ）はファイルそのものを指せる。ファイル1つのモジュールは `capture: ['file']` で捕捉し、entry-point の規則でこのキーを目印に見分けている
+- 既定では `import` 文しか解析されないので、`boundaries/dependency-nodes` に `export` と `dynamic-import` を足している。足さないと入口（`export … from` だけで書く）からの依存が、層の向きも entry-point も検査されない
+
 ## 外部ライブラリの制限
 
 `boundaries/external` で domain 層の外部依存を **zod のみ**に絞っている。
