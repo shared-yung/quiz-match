@@ -12,7 +12,11 @@ import { restrictedSyntax } from './base.js';
  *   src/features/<feature>/index.ts        feature の公開 API。他 feature はここだけを参照できる
  *   src/shared/{i18n,composables}/**       Vue に依存する共有コード（shared-ui）。
  *                                          presentation と合成ルートからだけ使える
- *   src/shared/**                          feature をまたぐ共有コード。Vue に依存しない
+ *   src/shared/<module>.ts                 feature をまたぐ共有コード。Vue に依存しない。
+ *   src/shared/<module>/index.ts           モジュールは「ファイル1つ」か「index.ts を持つフォルダ」
+ *
+ * 各要素（feature の各層、shared のモジュール）には入口 index.ts を置き、
+ * 他の要素からは入口しか import させない（boundaries/entry-point。テストは対象外）。
  *   test/**                                テスト。src の木をミラーし、同じ層として扱う。
  *                                          テストダブルは test/features/<f>/<layer>/*.fake.ts
  *   src/App.vue と src/{boot,router,layouts,pages,components,stores,css,assets}/**
@@ -79,6 +83,9 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
         // include に test/ を足すだけでは足りない。どの要素のパターンにも一致しないファイルは
         // 分類されず、エラーも出さずに素通りする。各要素の pattern に test 側も持たせること。
         'boundaries/include': [`${root}/**/*`, `${testRoot}/**/*`],
+        // 既定では import 文しか解析しない。入口は `export … from` だけで書くので、
+        // export を足さないと入口からの依存が層の向きも entry-point も検査されない
+        'boundaries/dependency-nodes': ['import', 'export', 'dynamic-import'],
         'boundaries/elements': [
           {
             type: 'feature-api',
@@ -111,10 +118,30 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
             pattern: mirrored('features/*/presentation'),
             capture: ['feature'],
           },
-          // shared より前に置く。boundaries は最初に一致した要素を採るので、
+          // shared はモジュール単位の要素にする。モジュールは「ファイル1つ」か
+          // 「index.ts を持つフォルダ」のどちらかで、フォルダの内部ファイルは entry-point で隠す。
+          // shared-ui は shared より前に置く。boundaries は最初に一致した要素を採るので、
           // 後ろに置くと shared に吸われる
-          { type: 'shared-ui', mode: 'full', pattern: mirrored(`${sharedUi}/**/*`) },
-          { type: 'shared', mode: 'full', pattern: mirrored('shared/**/*') },
+          {
+            type: 'shared-ui',
+            mode: 'folder',
+            pattern: mirrored(sharedUi),
+            capture: ['module'],
+          },
+          // ファイル1つのモジュール。フォルダのモジュールより前に置く
+          {
+            type: 'shared',
+            mode: 'file',
+            pattern: mirrored('shared/*.ts'),
+            // フォルダのモジュールと別のキーで捕捉し、entry-point で見分ける目印にする
+            capture: ['file'],
+          },
+          {
+            type: 'shared',
+            mode: 'folder',
+            pattern: mirrored('shared/*'),
+            capture: ['module'],
+          },
           {
             type: 'app',
             mode: 'full',
@@ -188,6 +215,32 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
             ],
           },
         ],
+        // 他の要素からは入口（index.ts）しか import できない（docs/architecture/module-entry.md）。
+        // 同じ要素の中の import は boundaries が対象外にするので、ファイルを直接指してよい
+        'boundaries/entry-point': [
+          'error',
+          {
+            default: 'disallow',
+            message:
+              '${dependency.type} の内部ファイル（${dependency.internalPath}）は import できません。要素の入口（index.ts）から公開してください（docs/architecture/module-entry.md）',
+            rules: [
+              {
+                target: [
+                  'domain',
+                  'use-case',
+                  'infrastructure',
+                  'presentation',
+                  'shared',
+                  'shared-ui',
+                ],
+                allow: 'index.ts',
+              },
+              // ファイル1つの shared モジュールと、feature-api / app はファイルそのものが要素
+              { target: [['shared', { file: '*' }]], allow: '*' },
+              { target: ['feature-api', 'app'], allow: '**' },
+            ],
+          },
+        ],
         'boundaries/external': [
           'error',
           {
@@ -218,6 +271,13 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
       // 外部ライブラリの制限だけ外す。
       files: ['**/*.spec.ts', '**/*.test.ts'],
       rules: { 'boundaries/external': 'off' },
+    },
+    {
+      // テストは公開していない関数も検証するので、入口以外への import を許す。
+      // test/ は src をミラーした別の要素として分類されるため、外さないと
+      // 自分の層の内部ファイルも import できなくなる。テストダブル（*.fake.ts）も同じ
+      files: [`${testRoot}/**`],
+      rules: { 'boundaries/entry-point': 'off' },
     },
     {
       // Vue に依存しない層で use～ を宣言させない

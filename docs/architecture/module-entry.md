@@ -32,7 +32,14 @@ export { type Signaling } from './signaling';
 - shared のモジュールは「ファイル1つ」か「`index.ts` を持つフォルダ」のどちらか
 - Quasar が要求する `src/router/index.ts` と `src/stores/index.ts` はフレームワークの規約で、モジュールの入口ではない。この規約の対象外
 
-足りない入口を置くことと、他の要素から入口以外への import を落とす強制は #83 で入れる。
+## 他の要素からは入口しか import できない
+
+他の要素の内部ファイル（`@/features/net/domain/peer` や `@/shared/protocol/codec`）を直接 import すると lint で落ちる。入口に公開されていないものが要るなら、まず入口に足すべきかを考える。入口は公開 API の契約なので、足すかどうかはレビューで扱う。
+
+- **同じ要素の中は対象外。** ファイルを直接指してよい（指すべき）
+- **テスト（`test/`）は対象外。** テストは公開していない関数も検証する。`test/` は src をミラーした別の要素として分類されるので、外さないと自分の層の内部ファイルも import できなくなる
+- ファイル1つの shared モジュール（`shared/time.ts`）は、ファイルそのものが入口
+- feature 直下の `index.ts` も、自 feature の層を入口経由で束ねる（`@/features/net/presentation`）
 
 ## feature 直下の入口
 
@@ -42,13 +49,15 @@ net の移行は #84 で行う。
 
 ## どこまで機械的に強制しているか
 
-| 形                                                         | 落ちる | 仕組み                                                      |
-| ---------------------------------------------------------- | ------ | ----------------------------------------------------------- |
-| 入口の `export *`                                          | ✅     | `no-restricted-syntax`（`packages/eslint-config/onion.js`） |
-| 入口に再 export 以外の文（宣言・import・`export {}` など） | ✅     | 同上                                                        |
-| `import … from '.'` / `'./'` / `'./index'`                 | ✅     | `no-restricted-imports`（`packages/eslint-config/base.js`） |
-| `@/` で自分の要素の入口を import する                      | ❌     | 規約のみ                                                    |
-| 他の要素の内部ファイルを直接 import する                   | ❌     | 規約のみ（#83 で `boundaries/entry-point` を入れる）        |
-| 中身のある要素に入口が無い                                 | ❌     | 規約のみ（#83）                                             |
+| 形                                                         | 落ちる | 仕組み                                                                               |
+| ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
+| 入口の `export *`                                          | ✅     | `no-restricted-syntax`（`packages/eslint-config/onion.js`）                          |
+| 入口に再 export 以外の文（宣言・import・`export {}` など） | ✅     | 同上                                                                                 |
+| `import … from '.'` / `'./'` / `'./index'`                 | ✅     | `no-restricted-imports`（`packages/eslint-config/base.js`）                          |
+| `@/` で自分の要素の入口を import する                      | ❌     | 規約のみ                                                                             |
+| 他の要素の内部ファイルを直接 import する（テストを除く）   | ✅     | `boundaries/entry-point`（`packages/eslint-config/onion.js`）                        |
+| 中身のある要素に入口が無い                                 | △      | 他の要素から使った時点で入口が要る（上の行で落ちる）。誰も使っていない要素は規約のみ |
 
-対象は `src/features/**/index.ts` と `src/shared/**/index.ts`。入口の `no-restricted-syntax` は onion.js の最後の設定で base の `restrictedSyntax` に足している。プロジェクト側で同じルールを足すときは、`restrictedSyntax` を展開して合流させること（flat config は options を丸ごと置き換える）。
+入口からの依存（`export … from`）も層の向きと entry-point の検査対象にするため、`boundaries/dependency-nodes` に `export` を足している。既定では `import` 文しか解析されず、入口は何でも再 export できてしまう。
+
+入口の書式の対象は `src/features/**/index.ts` と `src/shared/**/index.ts`。入口の `no-restricted-syntax` は onion.js の最後の設定で base の `restrictedSyntax` に足している。プロジェクト側で同じルールを足すときは、`restrictedSyntax` を展開して合流させること（flat config は options を丸ごと置き換える）。
