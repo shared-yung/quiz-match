@@ -10,6 +10,7 @@ import { restrictedSyntax } from './base.js';
  *   src/features/<feature>/infrastructure  API / ストレージなど外部との接続
  *   src/features/<feature>/presentation    Vue コンポーネントと Pinia ストア
  *   src/features/<feature>/index.ts        feature の公開 API。他 feature はここだけを参照できる
+ *   src/features/<feature>/install.ts      feature の組み立て（installXxx(app)）。index.ts と同じ要素
  *   src/shared/{i18n,composables}/**       Vue に依存する共有コード（shared-ui）。
  *                                          presentation と合成ルートからだけ使える
  *   src/shared/<module>.ts                 feature をまたぐ共有コード。Vue に依存しない。
@@ -59,6 +60,34 @@ const entryReexportOnly = [
   },
 ];
 
+/**
+ * 他の要素からは入口（index.ts）しか import させない（docs/architecture/module-entry.md）。
+ * 同じ要素の中の import は boundaries が対象外にするので、ファイルを直接指してよい。
+ *
+ * @param {object[]} extraRules 特定のファイルにだけ足す規則。entry-point の規則には from を
+ *   書けないので、import する側で変えたいときは files で絞った設定からこれで足す
+ */
+const entryPoint = (extraRules = []) => [
+  'error',
+  {
+    default: 'disallow',
+    message:
+      '${dependency.type} の内部ファイル（${dependency.internalPath}）は import できません。要素の入口（index.ts）から公開してください（docs/architecture/module-entry.md）',
+    rules: [
+      {
+        target: ['domain', 'use-case', 'infrastructure', 'presentation', 'shared', 'shared-ui'],
+        allow: 'index.ts',
+      },
+      // ファイル1つの shared モジュールと app はファイルそのものが要素
+      { target: [['shared', { file: '*' }]], allow: '*' },
+      { target: ['app'], allow: '**' },
+      // feature の外からは index.ts だけ。install.ts は同じ feature の index.ts だけが再 export する
+      { target: ['feature-api'], allow: 'index.ts' },
+      ...extraRules,
+    ],
+  },
+];
+
 export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
   const own = (type) => [type, { feature: '${from.feature}' }];
 
@@ -90,8 +119,13 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
           {
             type: 'feature-api',
             mode: 'file',
+            // install.ts は入口が再 export する組み立て（installXxx(app)）。入口と同じ要素にし、
+            // 自 feature の全層を束ねられるようにする。
             // 公開 API のテストはファイル名が変わるので mirrored を使わない
-            pattern: [`${root}/features/*/index.ts`, `${testRoot}/features/*/index.{spec,test}.ts`],
+            pattern: [
+              `${root}/features/*/{index,install}.ts`,
+              `${testRoot}/features/*/{index,install}.{spec,test}.ts`,
+            ],
             capture: ['feature'],
           },
           {
@@ -192,10 +226,12 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
                 ],
               },
 
-              // 公開 API は自 feature の全層を束ねられる（DI の組み立て点）
+              // 公開 API は自 feature の全層を束ねられる（DI の組み立て点）。
+              // own('feature-api') は index.ts が同じ feature の install.ts を再 export するため
               {
                 from: ['feature-api'],
                 allow: [
+                  own('feature-api'),
                   own('domain'),
                   own('use-case'),
                   own('infrastructure'),
@@ -215,32 +251,7 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
             ],
           },
         ],
-        // 他の要素からは入口（index.ts）しか import できない（docs/architecture/module-entry.md）。
-        // 同じ要素の中の import は boundaries が対象外にするので、ファイルを直接指してよい
-        'boundaries/entry-point': [
-          'error',
-          {
-            default: 'disallow',
-            message:
-              '${dependency.type} の内部ファイル（${dependency.internalPath}）は import できません。要素の入口（index.ts）から公開してください（docs/architecture/module-entry.md）',
-            rules: [
-              {
-                target: [
-                  'domain',
-                  'use-case',
-                  'infrastructure',
-                  'presentation',
-                  'shared',
-                  'shared-ui',
-                ],
-                allow: 'index.ts',
-              },
-              // ファイル1つの shared モジュールと、feature-api / app はファイルそのものが要素
-              { target: [['shared', { file: '*' }]], allow: '*' },
-              { target: ['feature-api', 'app'], allow: '**' },
-            ],
-          },
-        ],
+        'boundaries/entry-point': entryPoint(),
         'boundaries/external': [
           'error',
           {
@@ -271,6 +282,15 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
       // 外部ライブラリの制限だけ外す。
       files: ['**/*.spec.ts', '**/*.test.ts'],
       rules: { 'boundaries/external': 'off' },
+    },
+    {
+      // feature 直下の index.ts だけは、同じ feature の install.ts（組み立て）を再 export できる
+      files: [`${root}/features/*/index.ts`],
+      rules: {
+        'boundaries/entry-point': entryPoint([
+          { target: [['feature-api', { feature: '${from.feature}' }]], allow: 'install.ts' },
+        ]),
+      },
     },
     {
       // テストは公開していない関数も検証するので、入口以外への import を許す。

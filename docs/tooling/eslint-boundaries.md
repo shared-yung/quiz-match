@@ -59,6 +59,7 @@ export default [
 - 同じ要素の中の import は boundaries が対象外にする
 - `test/` は `files` の上書きで `entry-point` を切っている。テストが内部の関数を検証するため
 - shared はモジュール単位の要素にしている。`shared/<module>/`（フォルダ）は入口だけを、`shared/<module>.ts`（ファイル1つ）はファイルそのものを指せる。ファイル1つのモジュールは `capture: ['file']` で捕捉し、entry-point の規則でこのキーを目印に見分けている
+- feature 直下の `install.ts`（組み立て）は `index.ts` と同じ種類の要素 `feature-api` で、`feature-api` から自 feature の `feature-api` への import を許している。`install.ts` を指せるのは同じ feature の `index.ts` だけで、`files: ['src/features/*/index.ts']` の設定から entry-point の規則を足している。**entry-point の規則には `from` を書けない**ため、import する側で規則を変えたいときはこの形にする
 - 既定では `import` 文しか解析されないので、`boundaries/dependency-nodes` に `export` と `dynamic-import` を足している。足さないと入口（`export … from` だけで書く）からの依存が、層の向きも entry-point も検査されない
 
 ## 外部ライブラリの制限
