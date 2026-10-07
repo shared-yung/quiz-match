@@ -13,9 +13,12 @@
 
 `architecture/` — このプロジェクト固有の設計。層構成やテスト方針などリポジトリ共通のものは[ルートの docs/](../../docs/README.md)。
 
+- [net feature の構成](architecture/net.md) — ホスト星形を Signaling / Transport / Messenger でどう組み立てるか、手動での接続確認の手順
+
 ## 決定の記録
 
 - [0001 通信に WebRTC を採用し、Epic Online Services を見送る](adr/0001-transport.md) — EOS がブラウザで使えない理由と、設計意図をどう保ったか
 - [0002 プロトコルの型をドメインの型から独立させる](adr/0002-protocol-types.md) — 同じ形のスキーマを2か所に持つ理由と、ズレをどこで検知するか
+- [0003 シグナリングは手動 SDP 交換を暫定手段にし、本実装は ASP.NET (SignalR) に置く](adr/0003-signaling.md) — バックエンドを待たずに進める方法と、non-trickle ICE にした理由
 
 リポジトリ全体にまたがる判断は[ルートの docs/adr/](../../docs/adr/)。

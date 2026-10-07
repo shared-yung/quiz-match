@@ -48,12 +48,12 @@ feature 直下の `index.ts` からは、**組み立て（`installXxx(app)`）�
 ```ts
 // features/net/install.ts
 export const installNet = (app: App): void => {
-  provideSignaling(app, createWebrtcManualSignaling({ … }));
+  provideNetworking(app, { openHost: () => createWebrtcHostNetwork({ … }), … });
 };
 
 // features/net/index.ts
 export { installNet } from './install';
-export { ManualSignalingDebugPanel } from '@/features/net/presentation';
+export { HostNetDebugPanel, PlayerNetDebugPanel } from '@/features/net/presentation';
 
 // boot/net.ts
 export default defineBoot(({ app }) => installNet(app));
