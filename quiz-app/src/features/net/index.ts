@@ -4,5 +4,5 @@
  * 名前を明示した再 export だけを書く。組み立て（DI）は同じ階層の install.ts に置く
  * （docs/architecture/module-entry.md）。
  */
-export { createWebrtcManualSignaling } from '@/features/net/infrastructure';
-export { ManualSignalingDebugPanel, provideSignaling } from '@/features/net/presentation';
+export { installNet } from './install';
+export { ManualSignalingDebugPanel } from '@/features/net/presentation';

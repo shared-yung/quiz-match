@@ -45,18 +45,35 @@ export { type Signaling } from './signaling';
 
 feature 直下の `index.ts` からは、**組み立て（`installXxx(app)`）、画面の部品、他の feature が依存する port と型**だけを出す。infrastructure の具体的なファクトリーは出さない。どの実装を使うかは feature の内側の知識で、アプリ層が知るべきではない。組み立ての実装は `install.ts` に置き、`index.ts` はそれを再 export する。
 
-net の移行は #84 で行う。
+```ts
+// features/net/install.ts
+export const installNet = (app: App): void => {
+  provideSignaling(app, createWebrtcManualSignaling({ … }));
+};
+
+// features/net/index.ts
+export { installNet } from './install';
+export { ManualSignalingDebugPanel } from '@/features/net/presentation';
+
+// boot/net.ts
+export default defineBoot(({ app }) => installNet(app));
+```
+
+`install.ts` は boundaries では入口と同じ種類の要素（`feature-api`）に分類していて、自 feature の全層を束ねられる。アプリ層（boot）からは `installXxx` を呼ぶだけで、infrastructure の名前も設定値も見えない。
+
+`install.ts` を直接 import できるのは、同じ feature の `index.ts` だけ。boot や他の feature は `@/features/<f>` から受け取る。
 
 ## どこまで機械的に強制しているか
 
-| 形                                                         | 落ちる | 仕組み                                                                               |
-| ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
-| 入口の `export *`                                          | ✅     | `no-restricted-syntax`（`packages/eslint-config/onion.js`）                          |
-| 入口に再 export 以外の文（宣言・import・`export {}` など） | ✅     | 同上                                                                                 |
-| `import … from '.'` / `'./'` / `'./index'`                 | ✅     | `no-restricted-imports`（`packages/eslint-config/base.js`）                          |
-| `@/` で自分の要素の入口を import する                      | ❌     | 規約のみ                                                                             |
-| 他の要素の内部ファイルを直接 import する（テストを除く）   | ✅     | `boundaries/entry-point`（`packages/eslint-config/onion.js`）                        |
-| 中身のある要素に入口が無い                                 | △      | 他の要素から使った時点で入口が要る（上の行で落ちる）。誰も使っていない要素は規約のみ |
+| 形                                                              | 落ちる | 仕組み                                                                               |
+| --------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
+| 入口の `export *`                                               | ✅     | `no-restricted-syntax`（`packages/eslint-config/onion.js`）                          |
+| 入口に再 export 以外の文（宣言・import・`export {}` など）      | ✅     | 同上                                                                                 |
+| `import … from '.'` / `'./'` / `'./index'`                      | ✅     | `no-restricted-imports`（`packages/eslint-config/base.js`）                          |
+| `@/` で自分の要素の入口を import する                           | ❌     | 規約のみ                                                                             |
+| 他の要素の内部ファイルを直接 import する（テストを除く）        | ✅     | `boundaries/entry-point`（`packages/eslint-config/onion.js`）                        |
+| 同じ feature の `index.ts` 以外から `install.ts` を import する | ✅     | 同上（`features/*/index.ts` だけに規則を足している）                                 |
+| 中身のある要素に入口が無い                                      | △      | 他の要素から使った時点で入口が要る（上の行で落ちる）。誰も使っていない要素は規約のみ |
 
 入口からの依存（`export … from`）も層の向きと entry-point の検査対象にするため、`boundaries/dependency-nodes` に `export` を足している。既定では `import` 文しか解析されず、入口は何でも再 export できてしまう。
 

@@ -97,7 +97,7 @@ export const useSignaling = (): Signaling => {
 ```
 
 ```ts
-// boot/net-signaling.ts（合成ルート）
+// features/net/install.ts（合成ルート。boot は installNet(app) を呼ぶだけ）
 provideSignaling(app, createWebrtcManualSignaling({ … }));
 
 // コンポーザブル
@@ -107,7 +107,7 @@ const signaling = useSignaling();
 - **キーを持っていれば、どこからでも別の値を provide できてしまう。** provide の経路をこのファイルの関数に絞る
 - **「provide されていない」ときの検査は injector に1回だけ書く。** 呼び出し側は `undefined` を扱わずに済む
 - **injector は `use～`。** `inject` は setup コンテキストでしか呼べないので、コンポーザブルと同じ扱いにする。ファイル名も injector に合わせて `use-xxx.ts`
-- **provider は `provide～`。** 何も作らない動詞の関数。合成ルート（boot / feature の `index.ts`）から、`App` を受け取ってアプリ全体に provide する
+- **provider は `provide～`。** 何も作らない動詞の関数。合成ルート（boot / feature の `install.ts`）から、`App` を受け取ってアプリ全体に provide する
 - **provide する型は port にする。** 実装（手動シグナリング / SignalR など）を差し替えてもキーと関数の名前が変わらないようにする
 
 ## 依存の向き
