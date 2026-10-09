@@ -5,4 +5,4 @@
  * （docs/architecture/module-entry.md）。
  */
 export { installNet } from './install';
-export { ManualSignalingDebugPanel } from '@/features/net/presentation';
+export { HostNetDebugPanel, PlayerNetDebugPanel } from '@/features/net/presentation';

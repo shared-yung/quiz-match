@@ -15,18 +15,36 @@ export const en: MessageSchema = {
     notFound: 'Page not found',
     backToHome: 'Go Home',
   },
-  netSignalingDebug: {
-    title: 'Signaling check (interim, manual)',
+  netHostDebug: {
+    title: 'P2P connection check: host (interim, manual)',
     description:
-      'Host: click "Create offer", then send the resulting text to the player. Player: paste it in, click "Accept offer and create answer", then send the resulting text back to the host. Host: paste it in and click "Accept answer".',
-    remoteTextLabel: 'Text received from the other side',
-    localTextLabel: 'Text to send to the other side (filled in automatically)',
-    createOffer: 'Create offer',
-    acceptOfferAndCreateAnswer: 'Accept offer and create answer',
+      'Click "Invite player" to create an offer for one player. Send that text to the player, paste the text they send back into the same box, and click "Accept answer". Repeat for each player.',
+    invite: 'Invite player',
+    peerLabel: 'Connection {peerId}',
+    offerLabel: 'Text to send to the player (filled in automatically)',
+    answerLabel: 'Text received from the player',
     acceptAnswer: 'Accept answer',
     connectionStateConnecting: 'Connection state: connecting',
     connectionStateConnected: 'Connection state: connected',
     connectionStateDisconnected: 'Connection state: disconnected',
+    broadcastLabel: 'Text to send to everyone, one character at a time',
+    broadcast: 'Send to everyone',
+    receivedTitle: 'Messages from players',
+  },
+  netPlayerDebug: {
+    title: 'P2P connection check: player (interim, manual)',
+    description:
+      'Paste the text from the host and click "Accept offer and create answer", then send the resulting text back to the host. Once connected, you can send a join request or a buzz.',
+    offerLabel: 'Text received from the host',
+    acceptOfferAndCreateAnswer: 'Accept offer and create answer',
+    answerLabel: 'Text to send to the host (filled in automatically)',
+    connectionStateConnecting: 'Connection state: connecting',
+    connectionStateConnected: 'Connection state: connected',
+    connectionStateDisconnected: 'Connection state: disconnected',
+    nameLabel: 'Display name',
+    sendJoin: 'Send join request',
+    sendBuzz: 'Send buzz',
+    receivedTitle: 'Messages from the host',
   },
 };
 
