@@ -1,5 +1,4 @@
 import { ConnectionState, type PeerId, type Transport } from '@/features/net/domain';
-import { ExhaustiveError } from '@/shared/exhaustive-error';
 
 /**
  * `RTCDataChannel` を相手ごとに束ねた `Transport`。
@@ -15,29 +14,22 @@ export type DataChannelTransport = Transport & {
   attach: (peerId: PeerId, channel: RTCDataChannel) => void;
 };
 
-const toConnectionState = (state: RTCDataChannelState): ConnectionState => {
-  switch (state) {
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCDataChannelState) 側
-    case 'connecting':
-      return ConnectionState.Connecting;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCDataChannelState) 側
-    case 'open':
-      return ConnectionState.Connected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCDataChannelState) 側
-    case 'closing':
-      return ConnectionState.Disconnected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCDataChannelState) 側
-    case 'closed':
-      return ConnectionState.Disconnected;
-    default:
-      throw new ExhaustiveError(state);
-  }
+/**
+ * `RTCDataChannelState` から `ConnectionState` への対応表。
+ *
+ * `RTCDataChannelState` は lib.dom の型だけのユニオンで、値として参照できるオブジェクトが
+ * 無い。キーに書けば `Record` が全状態の網羅を typecheck で強制する。
+ */
+const connectionStateOf: Record<RTCDataChannelState, ConnectionState> = {
+  connecting: ConnectionState.Connecting,
+  open: ConnectionState.Connected,
+  closing: ConnectionState.Disconnected,
+  closed: ConnectionState.Disconnected,
 };
 
 /** 開いていない DataChannel の `send` は例外を投げる。`Transport` の契約では黙って捨てる。 */
 const sendIfOpen = (channel: RTCDataChannel, payload: string): void => {
-  // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCDataChannelState) 側
-  if (channel.readyState !== 'open') return;
+  if (connectionStateOf[channel.readyState] !== ConnectionState.Connected) return;
 
   channel.send(payload);
 };
@@ -56,7 +48,7 @@ export const createDataChannelTransport = (): DataChannelTransport => {
     const notifyState = (): void => {
       if (!isCurrent()) return;
 
-      const state = toConnectionState(channel.readyState);
+      const state = connectionStateOf[channel.readyState];
       stateHandlers.forEach((handler) => handler(peerId, state));
     };
 
@@ -93,7 +85,7 @@ export const createDataChannelTransport = (): DataChannelTransport => {
     connectionState: (peerId) => {
       const channel = channels.get(peerId);
 
-      return channel == undefined ? undefined : toConnectionState(channel.readyState);
+      return channel == undefined ? undefined : connectionStateOf[channel.readyState];
     },
     onConnectionStateChanged: (handler) => {
       stateHandlers.add(handler);

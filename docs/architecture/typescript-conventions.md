@@ -58,6 +58,25 @@ switch (event.type) {
 
 未知の値を弾くことが目的のテストだけは、未定義の値を文字列でベタ書きしてよい。それ自体が検証の対象だから。
 
+### 外部の型だけのユニオンから写すとき
+
+`RTCDataChannelState` のように、**外部ライブラリが型だけのユニオンで値の集合を持ち、参照できるオブジェクトが無い**ことがある。これを自分の enum 相当に写すときは、`switch` ではなく `Record` の対応表にする。
+
+```ts
+const connectionStateOf: Record<RTCDataChannelState, ConnectionState> = {
+  connecting: ConnectionState.Connecting,
+  open: ConnectionState.Connected,
+  closing: ConnectionState.Disconnected,
+  closed: ConnectionState.Disconnected,
+};
+
+if (connectionStateOf[channel.readyState] !== ConnectionState.Connected) return;
+```
+
+- `case 'open':` と書くと `no-restricted-syntax` で落ち、各 case に `eslint-disable` が要る。オブジェクトのキーは対象外
+- **`Record<外部の型, …>` が網羅を typecheck で強制する。** 状態が漏れても余計に書いても落ちるので、`ExhaustiveError` と同じ保証が得られる
+- 比較も対応表を通し、自分の enum 相当どうしで行う。外部の文字列と直接比べない
+
 ### なぜオブジェクトなのか
 
 - **TypeScript の `enum` は避ける。** 値と型が二重に生まれ、`const enum` は挙動が違い、数値 enum は範囲外の数値も代入できてしまう

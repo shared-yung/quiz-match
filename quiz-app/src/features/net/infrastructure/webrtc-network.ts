@@ -20,7 +20,7 @@ export type CreateSignaling = (deps: {
  * プレイヤーから見たホストの `PeerId`。プレイヤーの相手はホストだけなので固定でよい。
  * ホスト側の `PeerId` とは別の名前空間で、ホストはこの値を知らない。
  */
-export const hostPeerId: PeerId = peerIdSchema.parse('host');
+const hostPeerId: PeerId = peerIdSchema.parse('host');
 
 export type WebrtcHostNetworkDeps = {
   createSignaling: CreateSignaling;

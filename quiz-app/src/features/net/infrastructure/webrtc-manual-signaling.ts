@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { ConnectionState, type Signaling } from '@/features/net/domain';
-import { ExhaustiveError } from '@/shared/exhaustive-error';
 
 /** RTCSdpType のうち、このモジュールが実際にやり取りする2種類。 */
 const SdpKind = { Offer: 'offer', Answer: 'answer' } as const;
@@ -21,19 +20,27 @@ export type WebrtcManualSignalingDeps = {
   onDataChannel: (channel: RTCDataChannel) => void;
 };
 
+/**
+ * ICE candidate の収集が済んだか。`RTCIceGatheringState` は lib.dom の型だけのユニオンで
+ * 値として参照できないため、対応表のキーに書く（`Record` が網羅を強制する）。
+ */
+const isIceGatheringComplete: Record<RTCIceGatheringState, boolean> = {
+  new: false,
+  gathering: false,
+  complete: true,
+};
+
 /** `icegatheringstate` が `complete` になるまで待つ。non-trickle ICE のため。 */
 const waitForIceGatheringComplete = (pc: RTCPeerConnection): Promise<void> =>
   new Promise((resolve) => {
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCIceGatheringState) 側
-    if (pc.iceGatheringState === 'complete') {
+    if (isIceGatheringComplete[pc.iceGatheringState]) {
       resolve();
 
       return;
     }
 
     const onChange = (): void => {
-      // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCIceGatheringState) 側
-      if (pc.iceGatheringState !== 'complete') return;
+      if (!isIceGatheringComplete[pc.iceGatheringState]) return;
 
       pc.removeEventListener('icegatheringstatechange', onChange);
       resolve();
@@ -41,29 +48,14 @@ const waitForIceGatheringComplete = (pc: RTCPeerConnection): Promise<void> =>
     pc.addEventListener('icegatheringstatechange', onChange);
   });
 
-const toConnectionState = (state: RTCPeerConnectionState): ConnectionState => {
-  switch (state) {
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'new':
-      return ConnectionState.Connecting;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'connecting':
-      return ConnectionState.Connecting;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'connected':
-      return ConnectionState.Connected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'disconnected':
-      return ConnectionState.Disconnected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'failed':
-      return ConnectionState.Disconnected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'closed':
-      return ConnectionState.Disconnected;
-    default:
-      throw new ExhaustiveError(state);
-  }
+/** `RTCPeerConnectionState` から `ConnectionState` への対応表。理由は上と同じ。 */
+const connectionStateOf: Record<RTCPeerConnectionState, ConnectionState> = {
+  new: ConnectionState.Connecting,
+  connecting: ConnectionState.Connecting,
+  connected: ConnectionState.Connected,
+  disconnected: ConnectionState.Disconnected,
+  failed: ConnectionState.Disconnected,
+  closed: ConnectionState.Disconnected,
 };
 
 /**
@@ -82,7 +74,7 @@ export const createWebrtcManualSignaling = (deps: WebrtcManualSignalingDeps): Si
   });
 
   pc.addEventListener('connectionstatechange', () => {
-    const state = toConnectionState(pc.connectionState);
+    const state = connectionStateOf[pc.connectionState];
     stateHandlers.forEach((handler) => handler(state));
   });
 
@@ -127,7 +119,7 @@ export const createWebrtcManualSignaling = (deps: WebrtcManualSignalingDeps): Si
     createOffer,
     createAnswer,
     acceptAnswer,
-    connectionState: () => toConnectionState(pc.connectionState),
+    connectionState: () => connectionStateOf[pc.connectionState],
     onConnectionStateChanged: (handler) => {
       stateHandlers.add(handler);
 
