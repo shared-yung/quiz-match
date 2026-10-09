@@ -1,4 +1,7 @@
 import boundaries from 'eslint-plugin-boundaries';
+import { importX, createNodeResolver } from 'eslint-plugin-import-x';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import tseslint from 'typescript-eslint';
 import { restrictedSyntax } from './base.js';
 
 /**
@@ -18,6 +21,7 @@ import { restrictedSyntax } from './base.js';
  *
  * 各要素（feature の各層、shared のモジュール）には入口 index.ts を置き、
  * 他の要素からは入口しか import させない（boundaries/entry-point。テストは対象外）。
+ * 実行時に残る import の循環は、要素の内外を問わず import-x/no-cycle で落とす。
  *   test/**                                テスト。src の木をミラーし、同じ層として扱う。
  *                                          テストダブルは test/features/<f>/<layer>/*.fake.ts
  *   src/App.vue と src/{boot,router,layouts,pages,components,stores,css,assets}/**
@@ -275,6 +279,29 @@ export function onionBoundaries({ root = 'src', testRoot = 'test' } = {}) {
           },
         ],
       },
+    },
+    {
+      // 実行時に残る import の循環を禁止する（docs/tooling/eslint-boundaries.md）。
+      // 循環すると、モジュールの評価順によって初期化前の値を参照し ReferenceError になる。
+      // `import type` だけの循環は実行時に消えるので報告されない（それでよい）。
+      // 解決の設定は boundaries 用の 'import/resolver' とは別のキー。eslint-plugin-import の
+      // import/no-cycle は import/parsers を設定しないと依存先の TS を読めず、黙って「循環なし」になる
+      files: [`${root}/**/*.{ts,vue}`, `${testRoot}/**/*.{ts,vue}`],
+      plugins: { 'import-x': importX },
+      settings: {
+        'import-x/resolver-next': [
+          createTypeScriptImportResolver({ alwaysTryTypes: true }),
+          createNodeResolver({ extensions: ['.ts', '.vue', '.js'] }),
+        ],
+        'import-x/extensions': ['.ts', '.vue', '.js'],
+        // 依存先の .vue は vue-eslint-parser で読む。import-x は依存先を「lint 中のファイルの」
+        // parserOptions でパースするので、.ts から辿るときも <script lang="ts"> 用の parser を渡す。
+        // どちらかが欠けると .ts → .vue の辺が「Error while parsing」の警告だけで黙って切れ、
+        // .ts だけを lint する pre-commit で循環を見逃す
+        'import-x/parsers': { 'vue-eslint-parser': ['.vue'] },
+      },
+      languageOptions: { parserOptions: { parser: tseslint.parser } },
+      rules: { 'import-x/no-cycle': ['error', { ignoreExternal: true }] },
     },
     {
       // テストファイルはテストランナー（vitest / @vue/test-utils など）を import する。

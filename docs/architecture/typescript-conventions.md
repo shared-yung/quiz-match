@@ -147,6 +147,7 @@ import { ConnectionState } from '@/features/net/domain'; // presentation/composa
 - **要素の中でファイルを動かしても、要素の外への import は壊れない**
 - **自分のディレクトリの入口（`'.'` / `'./index'`）は import しない。** 入口は外から入るためのもので、中から入口を経由すると循環 import の原因になる
 - `export … from` も同じ規則に従う
+- **実行時に残る import の循環は禁止。** 循環すると、モジュールの評価順によって初期化前の値を参照し `ReferenceError` になる。入口の規則が防ぐのは入口を経由する循環だけで、同じ層の中のファイルどうしの循環は `import-x/no-cycle` で落とす（[ESLint による層の強制](../tooling/eslint-boundaries.md#import-の循環)）。`import type` だけの循環は実行時に消えるので対象外
 
 ### なぜ「何階層まで」で線を引かないのか
 
@@ -156,7 +157,7 @@ import { ConnectionState } from '@/features/net/domain'; // presentation/composa
 
 ## どこまで機械的に強制しているか
 
-`packages/eslint-config` の `no-restricted-syntax` / `no-restricted-imports` / `default-case`、および typecheck で次を落とす。
+`packages/eslint-config` の `no-restricted-syntax` / `no-restricted-imports` / `default-case` / `import-x/no-cycle`、および typecheck で次を落とす。
 
 | 形                                                      | 落ちる | 仕組み                                         |
 | ------------------------------------------------------- | ------ | ---------------------------------------------- |
@@ -170,6 +171,7 @@ import { ConnectionState } from '@/features/net/domain'; // presentation/composa
 | `foo?: T`（`\| undefined` が無い省略可能なプロパティ）  | ✅     | `no-restricted-syntax`                         |
 | `import … from '../x'` / `export … from '../x'`         | ✅     | `no-restricted-imports`                        |
 | `import … from '.'` / `'./'` / `'./index'`              | ✅     | `no-restricted-imports`                        |
+| 値の import が循環する（`.vue` を含む、`@/` 経由も）    | ✅     | `import-x/no-cycle`                            |
 | default の無い switch                                   | ✅     | `default-case`                                 |
 | case の漏れ                                             | ✅     | `ExhaustiveError` の `never` 引数（typecheck） |
 | 型定義側の `{ type: 'x' }`                              | ❌     | 規約のみ                                       |
@@ -178,9 +180,9 @@ import { ConnectionState } from '@/features/net/domain'; // presentation/composa
 | 動的 `import('../x')` と `vi.mock('../x')`              | ❌     | 規約のみ                                       |
 | `@/` で自分の要素の入口を import する                   | ❌     | 規約のみ                                       |
 
-**意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）、空文字との比較（`x === ''`）、`.vue` の省略可能なプロパティ（props の型。上の「例外」）。
+**意図して対象外にしているもの:** `typeof x === 'string'`（型の判定であって値の集合ではない）、`import type` だけの循環（実行時に消える）、空文字との比較（`x === ''`）、`.vue` の省略可能なプロパティ（props の型。上の「例外」）。
 
-**検出できないものが5つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。動的 `import()` と `vi.mock()` のパスは `no-restricted-imports` の対象外。`no-restricted-imports` は書かれた文字列しか見ないので、`@/features/net/domain` が自分の要素の入口かどうかは分からない。**強制していないものを強制しているつもりにならないこと。**
+**検出できないものが5つある。** 型定義側のリテラルは、`Record<'a' | 'b', …>` やテンプレートリテラル型など正当な文字列リテラル型と区別がつかない。動的 `import()` と `vi.mock()` のパスは `no-restricted-imports` の対象外。`no-restricted-imports` は書かれた文字列しか見ないので、`@/features/net/domain` が自分の要素の入口かどうかは分からない。ただし、それで値の import が循環すれば `import-x/no-cycle` で落ちる。**強制していないものを強制しているつもりにならないこと。**
 
 **値の集合を外部が持つ比較は、理由つきの disable コメントで除外する。** 例: Quasar が生成する `src/router/index.ts` の `import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history'`。取りうる値を決めているのは Quasar で、こちらで定数を定義しても何も保証しない。
 
