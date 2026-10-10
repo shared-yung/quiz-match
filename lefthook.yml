@@ -24,6 +24,12 @@ commit-msg:
     commitlint:
       run: sh scripts/commit-msg.sh {1}
 
+# git pull の後に、マージ済みのローカルブランチを消す（scripts/prune-merged-branches.sh、issue #91）
+post-merge:
+  commands:
+    prune-merged-branches:
+      run: sh scripts/prune-merged-branches.sh
+
 pre-push:
   commands:
     branch-name:
