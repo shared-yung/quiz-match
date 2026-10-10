@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { ConnectionState, type Signaling } from '@/features/net/domain';
-import { ExhaustiveError } from '@/shared/exhaustive-error';
 
 /** RTCSdpType のうち、このモジュールが実際にやり取りする2種類。 */
 const SdpKind = { Offer: 'offer', Answer: 'answer' } as const;
@@ -8,28 +7,40 @@ const SdpKind = { Offer: 'offer', Answer: 'answer' } as const;
 const offerSchema = z.object({ type: z.literal(SdpKind.Offer), sdp: z.string() });
 const answerSchema = z.object({ type: z.literal(SdpKind.Answer), sdp: z.string() });
 
-/**
- * `RTCPeerConnection` の生成だけを差し替え可能にする依存。
- * テストでは実際の `RTCPeerConnection` の代わりにフェイクを渡す
- * （test/features/net/infrastructure/webrtc-peer-connection.fake.ts）。
- */
 export type WebrtcManualSignalingDeps = {
+  /**
+   * テストでは実際の `RTCPeerConnection` の代わりにフェイクを渡す
+   * （test/features/net/infrastructure/webrtc-peer-connection.fake.ts）。
+   */
   createPeerConnection: () => RTCPeerConnection;
+  /**
+   * 送受信に使う DataChannel が手に入ったときに1回呼ぶ。ホスト側は offer を作るとき、
+   * プレイヤー側はホストの DataChannel が届いたとき。開く前の状態で渡す
+   */
+  onDataChannel: (channel: RTCDataChannel) => void;
+};
+
+/**
+ * ICE candidate の収集が済んだか。`RTCIceGatheringState` は lib.dom の型だけのユニオンで
+ * 値として参照できないため、対応表のキーに書く（`Record` が網羅を強制する）。
+ */
+const isIceGatheringComplete: Record<RTCIceGatheringState, boolean> = {
+  new: false,
+  gathering: false,
+  complete: true,
 };
 
 /** `icegatheringstate` が `complete` になるまで待つ。non-trickle ICE のため。 */
 const waitForIceGatheringComplete = (pc: RTCPeerConnection): Promise<void> =>
   new Promise((resolve) => {
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCIceGatheringState) 側
-    if (pc.iceGatheringState === 'complete') {
+    if (isIceGatheringComplete[pc.iceGatheringState]) {
       resolve();
 
       return;
     }
 
     const onChange = (): void => {
-      // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCIceGatheringState) 側
-      if (pc.iceGatheringState !== 'complete') return;
+      if (!isIceGatheringComplete[pc.iceGatheringState]) return;
 
       pc.removeEventListener('icegatheringstatechange', onChange);
       resolve();
@@ -37,43 +48,33 @@ const waitForIceGatheringComplete = (pc: RTCPeerConnection): Promise<void> =>
     pc.addEventListener('icegatheringstatechange', onChange);
   });
 
-const toConnectionState = (state: RTCPeerConnectionState): ConnectionState => {
-  switch (state) {
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'new':
-      return ConnectionState.Connecting;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'connecting':
-      return ConnectionState.Connecting;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'connected':
-      return ConnectionState.Connected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'disconnected':
-      return ConnectionState.Disconnected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'failed':
-      return ConnectionState.Disconnected;
-    // eslint-disable-next-line no-restricted-syntax -- 値の集合を持つのは WebRTC (RTCPeerConnectionState) 側
-    case 'closed':
-      return ConnectionState.Disconnected;
-    default:
-      throw new ExhaustiveError(state);
-  }
+/** `RTCPeerConnectionState` から `ConnectionState` への対応表。理由は上と同じ。 */
+const connectionStateOf: Record<RTCPeerConnectionState, ConnectionState> = {
+  new: ConnectionState.Connecting,
+  connecting: ConnectionState.Connecting,
+  connected: ConnectionState.Connected,
+  disconnected: ConnectionState.Disconnected,
+  failed: ConnectionState.Disconnected,
+  closed: ConnectionState.Disconnected,
 };
 
 /**
  * `Signaling` の暫定実装。SDP を人がコピー&ペーストする前提で、`RTCPeerConnection`
  * を直接操作する（quiz-app/docs/adr/0003-signaling.md）。
  *
- * 単一ペアの接続確立にだけ責務を絞る。複数ペアの管理と `Transport` の実装は #19。
+ * 単一ペアの接続確立にだけ責務を絞る。確立した DataChannel は `onDataChannel` で
+ * 渡すだけで、送受信は `Transport`（data-channel-transport.ts）が受け持つ。
  */
 export const createWebrtcManualSignaling = (deps: WebrtcManualSignalingDeps): Signaling => {
   const pc = deps.createPeerConnection();
   const stateHandlers = new Set<(state: ConnectionState) => void>();
 
+  pc.addEventListener('datachannel', (event: RTCDataChannelEvent) => {
+    deps.onDataChannel(event.channel);
+  });
+
   pc.addEventListener('connectionstatechange', () => {
-    const state = toConnectionState(pc.connectionState);
+    const state = connectionStateOf[pc.connectionState];
     stateHandlers.forEach((handler) => handler(state));
   });
 
@@ -90,8 +91,8 @@ export const createWebrtcManualSignaling = (deps: WebrtcManualSignalingDeps): Si
   };
 
   const createOffer = async (): Promise<string> => {
-    // データ用の m-line が無いと SDP が交渉に使えない。実際の送受信は #19 で行う
-    pc.createDataChannel('quiz-match');
+    // DataChannel はホスト側が作る。データ用の m-line が無いと SDP が交渉に使えない
+    deps.onDataChannel(pc.createDataChannel('quiz-match'));
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -118,7 +119,7 @@ export const createWebrtcManualSignaling = (deps: WebrtcManualSignalingDeps): Si
     createOffer,
     createAnswer,
     acceptAnswer,
-    connectionState: () => toConnectionState(pc.connectionState),
+    connectionState: () => connectionStateOf[pc.connectionState],
     onConnectionStateChanged: (handler) => {
       stateHandlers.add(handler);
 

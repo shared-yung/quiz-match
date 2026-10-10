@@ -77,31 +77,31 @@ export const useQuestionState = () => {
 **`InjectionKey` は export しない。** キーを定義したファイルの中に閉じ、同じファイルから provider と injector の2つの関数だけを export する。
 
 ```ts
-// features/net/presentation/composables/use-signaling.ts
-const signalingKey: InjectionKey<Signaling> = Symbol('signaling');
+// features/net/presentation/composables/use-networking.ts
+const networkingKey: InjectionKey<Networking> = Symbol('networking');
 
-export const provideSignaling = (app: App, signaling: Signaling): void => {
-  app.provide(signalingKey, signaling);
+export const provideNetworking = (app: App, networking: Networking): void => {
+  app.provide(networkingKey, networking);
 };
 
-export const useSignaling = (): Signaling => {
-  const signaling = inject(signalingKey);
-  if (signaling == undefined) {
+export const useNetworking = (): Networking => {
+  const networking = inject(networkingKey);
+  if (networking == undefined) {
     throw new Error(
-      'Signaling が provide されていません（合成ルートで provideSignaling を呼んでください）',
+      'Networking が provide されていません（合成ルートで provideNetworking を呼んでください）',
     );
   }
 
-  return signaling;
+  return networking;
 };
 ```
 
 ```ts
 // features/net/install.ts（合成ルート。boot は installNet(app) を呼ぶだけ）
-provideSignaling(app, createWebrtcManualSignaling({ … }));
+provideNetworking(app, { openHost: () => createWebrtcHostNetwork({ … }), … });
 
 // コンポーザブル
-const signaling = useSignaling();
+const networking = useNetworking();
 ```
 
 - **キーを持っていれば、どこからでも別の値を provide できてしまう。** provide の経路をこのファイルの関数に絞る
