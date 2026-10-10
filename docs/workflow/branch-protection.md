@@ -28,6 +28,8 @@ sh scripts/setup-branch-protection.sh
 - 必須ステータスチェック: `check`（CI ワークフロー）と `conventions`（規約ワークフロー）
 - レビュー承認数は 0（単独開発を想定。人が増えたら 1 に上げる）
 
+あわせてリポジトリ設定の `delete_branch_on_merge` を有効にする（マージ時にリモートのブランチを消す）。ローカルのブランチは、追跡先が消えたものを `post-merge` フックが消すので、これが無いとローカルにも残り続ける（[マージ後のブランチ](commit-and-branch.md#マージ後のブランチ)）。
+
 ## 変更したいとき
 
 ruleset は GitHub の Settings → Rules → Rulesets から編集できる。スクリプトを直して再実行する場合は、既存の ruleset を消してから実行すること（同名でも重複作成される）。
