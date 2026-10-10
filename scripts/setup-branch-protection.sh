@@ -29,4 +29,8 @@ echo "対象リポジトリ: $REPO"
 
 gh api --method POST "repos/$REPO/rulesets" --input "$RULESET_FILE"
 
+# マージ時にリモートのブランチを消す。ローカルのブランチは追跡先が [gone] になったものを
+# post-merge フック（scripts/prune-merged-branches.sh）が消すので、これが無いと何も消えない
+gh api --method PATCH "repos/$REPO" -F delete_branch_on_merge=true --silent
+
 echo "完了しました。main への直 push は禁止され、PR と CI の通過が必須になります。"
