@@ -87,6 +87,29 @@ domain / use-case / infrastructure / shared（shared-ui を除く）で `useXxx`
 
 この設定は `base.js` の禁止（enum 相当など）を `restrictedSyntax` として引き継いだうえで足している。**flat config は、後段で同じルールを指定すると options を丸ごと置き換える**ため、展開しないとそのファイルで enum 相当の禁止が黙って消える。プロジェクト側で `no-restricted-syntax` を足すときも同じようにすること。
 
+## import の循環
+
+`eslint-plugin-import-x` の `import-x/no-cycle` で、**実行時に残る import の循環**を落とす。ES モジュールで初期化前の値を参照して `ReferenceError` になるのは、import が循環しているときだけ。zod のスキーマのように最上位で関数を呼んで初期化する定数は避けられないので、初期化の書き方ではなく循環そのものを禁止する。
+
+- 落ちる: 同じフォルダの中の循環（3ファイル以上の輪も）、`@/` を経由する循環、`.vue` を含む循環（`.vue` 側と `.ts` 側のどちらを lint しても落ちる）
+- 落ちない: `import type` だけの循環、片方向が `import type` の組。型は実行時に消えるので循環にならない
+- 層や要素の境界は問わない。入口の規則（自分の入口を import しない）が防ぐのは入口を経由する循環だけで、同じ層の中のファイルどうしの循環はこちらで拾う
+
+設定は `onion.js` の `onionBoundaries()` の中にあり、`src` と `test` の `.ts` / `.vue` に効く。
+
+**依存先の `.vue` を読むための設定を外さないこと。** import-x は依存先のファイルを「lint 中のファイルの」parser 設定でパースする。`import-x/parsers` で `.vue` を `vue-eslint-parser` に割り当て、`.ts` 側の `parserOptions.parser` に TypeScript の parser を渡している。どちらかが欠けると `.ts` → `.vue` の辺は `Error while parsing` の警告を出すだけで黙って切れ、`.ts` だけを lint する pre-commit で循環を見逃す。
+
+### eslint-plugin-import の `import/no-cycle` を使わない理由
+
+- **`import/parsers` を設定しないと依存先の TS を読めず、黙って「循環なし」になる。** 導入前の計測の最初の設定では1件も検出していなかった
+- 遅い。導入時の計測（quiz-match の quiz-app、src と test で 95 ファイル）で `eslint .` 全体が約 2.2 秒 → 約 9.5 秒（`disableScc: true` でも約 3.7 秒）。import-x は約 2.8 秒
+
+eslint-plugin-import 本体は、boundaries が import の解決に使うので残している（併存する）。解決の設定キーも別で、boundaries 用が `import/resolver`、no-cycle 用が `import-x/resolver-next`。
+
+import-x が依存する `unrs-resolver` の postinstall は bun がブロックするが、`trustedDependencies` には入れていない。ネイティブバイナリは optionalDependencies の `@unrs/resolver-binding-*` で入り、postinstall はそれが無いときの取得の予備にすぎない。
+
+**見直しの条件:** lint 全体が目に見えて遅くなったとき（目安: no-cycle の分が全体の半分を超える）。ファイル数が今の数倍になった時点で測り直す。
+
 ## import の解決について
 
 boundaries は import の解決に `eslint-plugin-import` の resolver を使う。`onion.js` で拡張子（`.ts` `.tsx` `.vue` など）と TypeScript resolver を設定済み。
@@ -99,6 +122,6 @@ boundaries は import の解決に `eslint-plugin-import` の resolver を使う
 
 ## 設定を変更する場所
 
-- 層の定義とルール本体: `packages/eslint-config/onion.js`
+- 層の定義とルール本体、import の循環の禁止: `packages/eslint-config/onion.js`
 - JS/TS の共通ルール: `packages/eslint-config/base.js`
 - Vue SFC のルール: `packages/eslint-config/vue.js`
