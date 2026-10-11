@@ -138,7 +138,8 @@ git ls-files --eol
 3. ルートの `eslint.config.js` の `ignores` にもそのフォルダを追加する
    - flat config はサブディレクトリへカスケードしないため、追加しないとルートの設定でプロジェクトのソースが lint されてしまう
 4. プロジェクト側の `package.json` に `lint` / `typecheck` / `test` スクリプトを定義する（ルートから委譲される）
-5. `lefthook.yml` の `pre-commit` にそのプロジェクト用の lint コマンドを追加する（`root:` にフォルダを指定）
+5. `lefthook.yml` の `pre-commit` にそのプロジェクト用の lint コマンドを追加する（`root:` にフォルダを指定し、`run: sh ../scripts/lint-project.sh {staged_files}`）
+   - `run:` に `git add {staged_files}` を直接書かない。git worktree 上の `git commit` から起動されたフックには `GIT_WORK_TREE` が渡らず、git がプロジェクトフォルダを work tree のトップと誤認して、ルート直下に prefix 無しで二重にコミットする。スクリプトが `GIT_WORK_TREE` を明示している
    - ルートから `eslint` を起動してもプロジェクトの設定は読まれず、staged ファイルが素通りする
 6. プロジェクト側に `eslint.config.js` を置く → [ESLint による層の強制](eslint-boundaries.md)
 7. プロジェクト側の `tsconfig.json` に `../tsconfig.base.json` を足す
