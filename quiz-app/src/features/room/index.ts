@@ -18,3 +18,4 @@ export {
   WinConditionType,
 } from '@/features/room/domain';
 export { createRoomSession, type JoinResult, type RoomSession } from '@/features/room/use-case';
+export { RuleSetForm, RuleSetSummary } from '@/features/room/presentation';

@@ -6,7 +6,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/MainLayout.vue'),
     children: [
       { path: '', component: () => import('@/pages/IndexPage.vue') },
-      // 暫定手段（SDP のコピー&ペースト）でのホスト星形接続の確認用。本来のルーム作成・参加 UI は #21
+      { path: 'host', component: () => import('@/pages/HostMatchPage.vue') },
+      { path: 'join', component: () => import('@/pages/JoinMatchPage.vue') },
+      // 暫定手段（SDP のコピー&ペースト）でのホスト星形接続の確認用。ルーム作成・参加の画面は /host と /join
       { path: 'debug/net/host', component: () => import('@/pages/NetHostDebugPage.vue') },
       { path: 'debug/net/player', component: () => import('@/pages/NetPlayerDebugPage.vue') },
     ],

@@ -5,3 +5,5 @@
  * 名前を明示した再 export だけを書く。組み立て（DI）は同じ階層の install.ts に置く
  * （docs/architecture/module-entry.md）。
  */
+export { installMatch } from './install';
+export { HostMatchPanel, JoinMatchPanel } from '@/features/match/presentation';
