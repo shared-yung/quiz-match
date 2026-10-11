@@ -11,7 +11,9 @@
 - **コミットは Conventional Commits + フッターに `Refs: #<番号>`。** scope は feature 名
 - **domain 層で import してよい外部ライブラリは zod のみ** → [docs/architecture/onion-layers.md](docs/architecture/onion-layers.md)
 - **enum 相当は `as const` のオブジェクトリテラルで定義する。** TypeScript の `enum` は使わない → [docs/architecture/typescript-conventions.md](docs/architecture/typescript-conventions.md)
-- **domain / use-case はテストを先に書く（TDD）。** バグ修正は層を問わず再現テストから。テストを変えてよいのは実装の前だけ → [docs/workflow/tdd.md](docs/workflow/tdd.md)
+- **domain / use-case はテストを先に書く（TDD）。** バグ修正は層を問わず再現テストから → [docs/workflow/tdd.md](docs/workflow/tdd.md)
+  - 実装の前に、テストが期待した理由で落ちた出力を示す。歩幅は明白な実装を基本にし、テストリストは1件ずつ進める
+  - **テストを変えてよいのは実装の前だけ。** 実装の後でテストや期待値を変えたくなったら、手を止めて理由を述べる
 - **パッケージ操作は bun。** npm / yarn / pnpm は使わない
 
 ## スタック

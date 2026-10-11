@@ -21,6 +21,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/remind-test-edit.mjs",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
