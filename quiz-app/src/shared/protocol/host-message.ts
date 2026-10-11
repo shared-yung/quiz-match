@@ -52,7 +52,8 @@ export type HostMessageType = (typeof HostMessageType)[keyof typeof HostMessageT
  * ルームの現在の状態。参加時と、参加者が増減したときに全員へ送る。
  *
  * 出題中の問題文はここに含めない。**再接続したプレイヤーに問題文を渡さない**
- * ことで、1文字ずつ公開する意味を保つ（再接続時の同期の粒度は #20）。
+ * ことで、1文字ずつ公開する意味を保つ。途中から入った人には公開済みの文字だけを
+ * 送り直す（`catchUpMessages`）。
  */
 export const roomStateMessageSchema = z.object({
   type: z.literal(HostMessageType.RoomState),
