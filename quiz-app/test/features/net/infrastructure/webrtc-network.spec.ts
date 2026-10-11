@@ -20,15 +20,23 @@ import { createFakeDataChannel, type FakeDataChannel } from './webrtc-data-chann
  */
 const createSignalingStub = () => {
   const channels: FakeDataChannel[] = [];
+  /** `channels` と同じ順で、その接続が閉じられたか */
+  const closed: boolean[] = [];
   const createSignaling: CreateSignaling = ({ onDataChannel }) => {
+    const index = channels.length;
     const channel = createFakeDataChannel();
     channels.push(channel);
+    closed.push(false);
     onDataChannel(channel);
 
-    return {} as Signaling;
+    return {
+      close: () => {
+        closed[index] = true;
+      },
+    } as Signaling;
   };
 
-  return { channels, createSignaling };
+  return { channels, closed, createSignaling };
 };
 
 const sequentialPeerIds = () => {
@@ -128,17 +136,32 @@ describe('createWebrtcHostNetwork', () => {
     expect(host.transport.connectionState(first)).toBe(ConnectionState.Connected);
     expect(host.transport.connectionState(second)).toBe(ConnectionState.Disconnected);
   });
+
+  it('close で、招待したすべての接続を閉じる', () => {
+    const stub = createSignalingStub();
+    const host = createWebrtcHostNetwork({
+      createSignaling: stub.createSignaling,
+      generatePeerId: sequentialPeerIds(),
+    });
+    host.invite();
+    host.invite();
+
+    host.close();
+
+    expect(stub.closed).toEqual([true, true]);
+  });
 });
 
 describe('createWebrtcPlayerNetwork', () => {
   const setUpPlayer = () => {
     const stub = createSignalingStub();
     const player = createWebrtcPlayerNetwork({ createSignaling: stub.createSignaling });
+    player.connect();
     const [channel] = stub.channels;
     if (channel == undefined) throw new Error('DataChannel が作られていません');
     channel.open();
 
-    return { player, channel };
+    return { player, channel, stub };
   };
 
   it('ホストへ送れる', () => {
@@ -159,5 +182,26 @@ describe('createWebrtcPlayerNetwork', () => {
     channel.receive(encodeMessage({ type: PlayerMessageType.Buzz }));
 
     expect(received).toEqual([char(0, '問')]);
+  });
+
+  it('connect し直すと、前の接続を閉じて新しい接続でホストとやり取りする', () => {
+    const { player, stub } = setUpPlayer();
+
+    player.connect();
+    const [oldChannel, newChannel] = stub.channels;
+    newChannel?.open();
+    player.messenger.send({ type: PlayerMessageType.Buzz });
+
+    expect(stub.closed).toEqual([true, false]);
+    expect(oldChannel?.sent).toEqual([]);
+    expect(newChannel?.sent).toEqual([encodeMessage({ type: PlayerMessageType.Buzz })]);
+  });
+
+  it('close で接続を閉じる', () => {
+    const { player, stub } = setUpPlayer();
+
+    player.close();
+
+    expect(stub.closed).toEqual([true]);
   });
 });

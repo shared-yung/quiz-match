@@ -3,7 +3,7 @@ import { useAppI18n } from '@/shared/i18n';
 import { useHostNetDebug } from './composables/use-host-net-debug';
 
 const { t } = useAppI18n();
-const { slots, received, broadcastText, invite, acceptAnswer, broadcastChars, stateKey } =
+const { slots, members, received, broadcastText, invite, acceptAnswer, broadcastChars, stateKey } =
   useHostNetDebug();
 </script>
 
@@ -30,6 +30,14 @@ const { slots, received, broadcastText, invite, acceptAnswer, broadcastChars, st
         </div>
       </q-card-section>
     </q-card>
+
+    <div class="text-subtitle2">{{ t('netHostDebug.membersTitle') }}</div>
+    <div v-for="member in members" :key="member.playerId" class="row q-gutter-sm text-body2">
+      <div>
+        {{ t('netHostDebug.memberLine', { name: member.name, playerId: member.playerId }) }}
+      </div>
+      <div>{{ t(stateKey(member.presence)) }}</div>
+    </div>
 
     <div class="row items-center q-gutter-sm">
       <q-input v-model="broadcastText" :label="t('netHostDebug.broadcastLabel')" />
