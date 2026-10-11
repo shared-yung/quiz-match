@@ -10,11 +10,13 @@
 - [コミット・ブランチ規約](workflow/commit-and-branch.md) — 命名形式と具体例
 - [ブランチ保護の設定](workflow/branch-protection.md) — GitHub 側の初期設定手順
 - [リモート操作のガードレール](workflow/remote-guardrails.md) — AI にリモートを触らせる前の承認の仕組み
+- [テスト駆動開発（TDD）](workflow/tdd.md) — テストを先に書く範囲、作業の種類ごとの最初の Red、テストを変えてよい場面
 
 ## 決定の記録（ADR）
 
 - [0001 Linter と Formatter に ESLint + Prettier を使い続ける](adr/0001-linter-and-formatter.md) — oxlint / oxfmt を評価して見送った理由と、再検討のトリガー
 - [0002 i18n のロケールファイルは TypeScript で持つ](adr/0002-i18n-message-format.md) — 未使用キー検出を諦めて型の保証を取った理由
+- [0003 domain / use-case の実装は TDD で進める](adr/0003-tdd.md) — 対象を絞った理由と、機械的に強制しない理由
 
 ## アーキテクチャ
 

@@ -27,6 +27,12 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: reproduction-test
+    attributes:
+      label: 再現テスト
+      description: どの層のどのテストで再現するか。修正の前にこのテストが落ちることを確認する（docs/workflow/tdd.md）。分かる範囲でよい
+
   - type: input
     id: feature-scope
     attributes:
