@@ -2,6 +2,8 @@
 
 ランナーは **Vitest に一本化**する。E2E のみ Playwright。
 
+テストと実装をどの順序で書くかは [テスト駆動開発（TDD）](../workflow/tdd.md) にある。
+
 `bun test` は使わない。`.vue` の SFC を解決できず、Quasar / Vite プラグイン・DOM 環境・`@vue/test-utils` を通す必要があるため presentation 層で使えない。domain だけ bun test にする手もあるが、ランナーが2種類になる運用コストのほうが高い。
 
 ## 置き場所

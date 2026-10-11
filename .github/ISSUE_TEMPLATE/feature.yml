@@ -27,6 +27,14 @@ body:
       required: true
 
   - type: textarea
+    id: test-list
+    attributes:
+      label: テストリスト
+      description: 外から観察できる振る舞いを箇条書きで。分かる範囲でよく、実装中の増減は PR の「計画との差異」に書く（docs/workflow/tdd.md）
+      value: |
+        - [ ]
+
+  - type: textarea
     id: done
     attributes:
       label: 完了条件
