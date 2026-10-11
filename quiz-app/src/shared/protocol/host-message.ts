@@ -4,6 +4,7 @@ import {
   playerRefSchema,
   playerSummarySchema,
   questionIndexSchema,
+  rejoinTokenSchema,
   revealedCharSchema,
   ruleSetPayloadSchema,
   scoresSchema,
@@ -21,6 +22,8 @@ import {
 export const HostMessageType = {
   /** ルームの現在の状態 */
   RoomState: 'room/state',
+  /** 参加の受理 */
+  JoinAccepted: 'join/accepted',
   /** 参加の拒否 */
   JoinRejected: 'join/rejected',
   /** 出題の開始 */
@@ -58,11 +61,27 @@ export const roomStateMessageSchema = z.object({
   scores: scoresSchema,
   phase: phaseSchema,
 });
+export type RoomStateMessage = z.infer<typeof roomStateMessageSchema>;
+
+/**
+ * 参加を受け付けた。**受け付けた本人にだけ送る。**
+ *
+ * プレイヤーはここで初めて自分の id を知る。`rejoinToken` は接続が切れたときに
+ * `rejoin` で名乗り直すための合言葉で、他人に渡ると乗っ取られる。`rejoin` を
+ * 受け付けたときも、同じ id とトークンでこれを返す。
+ */
+export const joinAcceptedMessageSchema = z.object({
+  type: z.literal(HostMessageType.JoinAccepted),
+  playerId: playerRefSchema,
+  rejoinToken: rejoinTokenSchema,
+});
 
 /** 参加を断った理由。 */
 export const JoinRejectedReason = {
   /** 参加人数が上限に達している */
   RoomFull: 'roomFull',
+  /** 再参加のトークンに覚えが無い（ホストが入れ替わった、または退室済み） */
+  UnknownToken: 'unknownToken',
 } as const;
 
 export const joinRejectedReasonSchema = z.enum(JoinRejectedReason);
@@ -195,6 +214,7 @@ export const gameEndMessageSchema = z.object({
  */
 export const hostMessageSchema = z.discriminatedUnion('type', [
   roomStateMessageSchema,
+  joinAcceptedMessageSchema,
   joinRejectedMessageSchema,
   questionStartMessageSchema,
   questionCharMessageSchema,
