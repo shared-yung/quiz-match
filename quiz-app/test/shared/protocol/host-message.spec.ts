@@ -79,6 +79,11 @@ const validMessages = {
     type: HostMessageType.JoinRejected,
     reason: JoinRejectedReason.RoomFull,
   },
+  [HostMessageType.JoinAccepted]: {
+    type: HostMessageType.JoinAccepted,
+    playerId: 'p1',
+    rejoinToken: 'token-1',
+  },
 } satisfies Record<HostMessageType, HostMessage>;
 
 describe('Host → Player のメッセージ', () => {
@@ -129,6 +134,26 @@ describe('Host → Player のメッセージ', () => {
     it('未知の理由を弾く', () => {
       // 未知の値を弾くことが目的なので、理由はベタ書きする
       const message = { type: HostMessageType.JoinRejected, reason: 'banned' };
+
+      expect(hostMessageSchema.safeParse(message).success).toBe(false);
+    });
+
+    it('再参加のトークンが通じなかったことを伝えられる', () => {
+      const message = {
+        type: HostMessageType.JoinRejected,
+        reason: JoinRejectedReason.UnknownToken,
+      };
+
+      expect(hostMessageSchema.safeParse(message).success).toBe(true);
+    });
+  });
+
+  describe('join/accepted', () => {
+    it.each([
+      ['空のトークン', ''],
+      ['64文字を超えるトークン', 'a'.repeat(65)],
+    ])('%s を弾く', (_name, rejoinToken) => {
+      const message = { type: HostMessageType.JoinAccepted, playerId: 'p1', rejoinToken };
 
       expect(hostMessageSchema.safeParse(message).success).toBe(false);
     });

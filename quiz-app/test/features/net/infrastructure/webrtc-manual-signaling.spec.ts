@@ -141,4 +141,18 @@ describe('createWebrtcManualSignaling', () => {
       expect(seen).toEqual([ConnectionState.Connected]);
     });
   });
+
+  describe('close', () => {
+    it('RTCPeerConnection を閉じる', () => {
+      const pc = createFakePeerConnection();
+      const signaling = createWebrtcManualSignaling({
+        createPeerConnection: () => pc,
+        onDataChannel: () => undefined,
+      });
+
+      signaling.close();
+
+      expect(pc.closed).toBe(true);
+    });
+  });
 });

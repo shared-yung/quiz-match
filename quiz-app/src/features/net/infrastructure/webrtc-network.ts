@@ -34,6 +34,7 @@ export type WebrtcHostNetworkDeps = {
  */
 export const createWebrtcHostNetwork = (deps: WebrtcHostNetworkDeps): HostNetwork => {
   const transport = createDataChannelTransport();
+  const signalings: Signaling[] = [];
 
   return {
     invite: () => {
@@ -41,11 +42,16 @@ export const createWebrtcHostNetwork = (deps: WebrtcHostNetworkDeps): HostNetwor
       const signaling = deps.createSignaling({
         onDataChannel: (channel) => transport.attach(peerId, channel),
       });
+      signalings.push(signaling);
 
       return { peerId, signaling };
     },
     transport,
     messenger: createHostMessenger({ transport }),
+    close: () => {
+      signalings.forEach((signaling) => signaling.close());
+      signalings.length = 0;
+    },
   };
 };
 
@@ -53,16 +59,34 @@ export type WebrtcPlayerNetworkDeps = {
   createSignaling: CreateSignaling;
 };
 
-/** プレイヤー側の `PlayerNetwork`。ホストとの1本だけを持つ。 */
+/**
+ * プレイヤー側の `PlayerNetwork`。ホストとの1本だけを持つ。
+ *
+ * 張り直すたびに `RTCPeerConnection` を作り直し、届いた DataChannel を同じ
+ * `hostPeerId` で `attach` する。`Transport` が古い DataChannel を置き換えるので、
+ * 上に載る `messenger` と購読者はそのまま使い続けられる。
+ */
 export const createWebrtcPlayerNetwork = (deps: WebrtcPlayerNetworkDeps): PlayerNetwork => {
   const transport = createDataChannelTransport();
-  const signaling = deps.createSignaling({
-    onDataChannel: (channel) => transport.attach(hostPeerId, channel),
-  });
+  let current: Signaling | undefined;
+
+  const close = (): void => {
+    current?.close();
+    current = undefined;
+  };
 
   return {
-    signaling,
+    connect: () => {
+      close();
+      const signaling = deps.createSignaling({
+        onDataChannel: (channel) => transport.attach(hostPeerId, channel),
+      });
+      current = signaling;
+
+      return signaling;
+    },
     transport,
     messenger: createPlayerMessenger({ transport, hostPeerId }),
+    close,
   };
 };

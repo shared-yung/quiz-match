@@ -25,16 +25,28 @@ export type HostNetwork = {
   transport: Transport;
   /** `transport` の上でプロトコルのメッセージをやり取りする */
   messenger: HostMessenger;
+  /** 招待したすべての接続を閉じる。画面を離れるときに呼ぶ */
+  close: () => void;
 };
 
-/** プレイヤー側の通信。相手はホストだけ。 */
+/**
+ * プレイヤー側の通信。相手はホストだけ。
+ *
+ * ホストとの接続は切れたら張り直す（再参加）。`transport` と `messenger` は
+ * 張り直しても同じものを使い続け、新しい接続の DataChannel に差し替わる。
+ */
 export type PlayerNetwork = {
-  /** ホストから受け取った offer に answer を返す */
-  signaling: Signaling;
+  /**
+   * ホストからの offer に answer を返すための接続を新しく用意する。前の接続は閉じる。
+   * 最初の接続でも、切れた後の張り直しでも呼ぶ
+   */
+  connect: () => Signaling;
   /** ホストとの文字列の送受信と、接続の状態 */
   transport: Transport;
   /** `transport` の上でプロトコルのメッセージをやり取りする */
   messenger: PlayerMessenger;
+  /** ホストとの接続を閉じる。画面を離れるときに呼ぶ */
+  close: () => void;
 };
 
 /**

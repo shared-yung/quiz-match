@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { displayNameSchema } from './common';
+import { displayNameSchema, rejoinTokenSchema } from './common';
 
 /**
- * Player → Host のメッセージ。**この3つだけ。**
+ * Player → Host のメッセージ。**この4つだけ。**
  *
  * プレイヤーは自分の状態を主張しない。「押した」「回答した」を送るだけで、採用
  * されたかどうかはホストからの通知で知る（docs/spec/p2p-protocol.md）。
@@ -15,6 +15,8 @@ import { displayNameSchema } from './common';
 export const PlayerMessageType = {
   /** 参加要求 */
   Join: 'join',
+  /** 切断後の再参加要求 */
+  Rejoin: 'rejoin',
   /** 早押しボタンの押下 */
   Buzz: 'buzz',
   /** 回答の送信 */
@@ -27,6 +29,17 @@ export type PlayerMessageType = (typeof PlayerMessageType)[keyof typeof PlayerMe
 export const joinMessageSchema = z.object({
   type: z.literal(PlayerMessageType.Join),
   name: displayNameSchema,
+});
+
+/**
+ * 切断後に、新しい接続で名乗り直す。
+ *
+ * 名乗るのは `join/accepted` で受け取ったトークンで、`PlayerId` ではない。id は
+ * `room/state` で全員に見えているので、id で名乗れると他人になりすませる。
+ */
+export const rejoinMessageSchema = z.object({
+  type: z.literal(PlayerMessageType.Rejoin),
+  token: rejoinTokenSchema,
 });
 
 /** 早押しボタンの押下。ペイロードは持たない。順序はホストの受信順で決まる。 */
@@ -52,6 +65,7 @@ export const answerMessageSchema = z.object({
  */
 export const playerMessageSchema = z.discriminatedUnion('type', [
   joinMessageSchema,
+  rejoinMessageSchema,
   buzzMessageSchema,
   answerMessageSchema,
 ]);
