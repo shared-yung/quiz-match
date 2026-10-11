@@ -14,6 +14,8 @@ export {
   playerRefSchema,
   playerSummarySchema,
   questionIndexSchema,
+  type RejoinToken,
+  rejoinTokenSchema,
   revealedCharSchema,
   type RuleSetPayload,
   ruleSetPayloadSchema,
@@ -31,6 +33,7 @@ export {
   type HostMessage,
   hostMessageSchema,
   HostMessageType,
+  joinAcceptedMessageSchema,
   joinRejectedMessageSchema,
   JoinRejectedReason,
   joinRejectedReasonSchema,
@@ -43,6 +46,7 @@ export {
   revealStopMessageSchema,
   RevealStopReason,
   revealStopReasonSchema,
+  type RoomStateMessage,
   roomStateMessageSchema,
   scoreUpdateMessageSchema,
 } from './host-message';
@@ -53,6 +57,7 @@ export {
   type PlayerMessage,
   playerMessageSchema,
   PlayerMessageType,
+  rejoinMessageSchema,
 } from './player-message';
 export {
   decodeHostMessage,
@@ -61,3 +66,4 @@ export {
   parseHostMessage,
   parsePlayerMessage,
 } from './codec';
+export { catchUpMessages, type QuestionProgress } from './catch-up';

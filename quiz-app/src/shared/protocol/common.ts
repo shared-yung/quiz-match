@@ -20,6 +20,16 @@ import { z } from 'zod';
 export const playerRefSchema = z.string().min(1).max(64);
 export type PlayerRef = z.infer<typeof playerRefSchema>;
 
+/**
+ * 再参加のための合言葉。参加を受け付けたときにホストが本人にだけ渡す。
+ *
+ * 接続が切れて張り直すと `PeerId` は変わるので、同じプレイヤーかどうかはこれで
+ * 照合する（docs/adr/0004-rejoin-token.md）。中身の形はホストが決め、ここでは
+ * 長さだけを縛る。
+ */
+export const rejoinTokenSchema = z.string().min(1).max(64);
+export type RejoinToken = z.infer<typeof rejoinTokenSchema>;
+
 /** 画面に出す名前。ドメインの `Player.name` と同じ制約を回線側でも課す。 */
 export const displayNameSchema = z.string().trim().min(1).max(20);
 

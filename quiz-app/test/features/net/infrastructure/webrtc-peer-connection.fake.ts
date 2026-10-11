@@ -8,6 +8,8 @@ import { createFakeDataChannel, type FakeDataChannel } from './webrtc-data-chann
  * `completeIceGathering`/`setConnectionState`/`receiveDataChannel` で装う。
  */
 export type FakePeerConnection = RTCPeerConnection & {
+  /** `close` を呼ばれたか */
+  readonly closed: boolean;
   /** `createDataChannel` で作った DataChannel。作る前は `undefined` */
   readonly createdChannel: FakeDataChannel | undefined;
   /** ICE candidate の収集完了を装う。`icegatheringstatechange` の購読者を呼ぶ */
@@ -23,6 +25,7 @@ export const createFakePeerConnection = (): FakePeerConnection => {
   let iceGatheringState: RTCIceGatheringState = 'new';
   let connectionState: RTCPeerConnectionState = 'new';
   let createdChannel: FakeDataChannel | undefined;
+  let closed = false;
   const iceGatheringListeners = new Set<() => void>();
   const connectionStateListeners = new Set<() => void>();
   const dataChannelListeners = new Set<(event: { channel: FakeDataChannel }) => void>();
@@ -35,6 +38,12 @@ export const createFakePeerConnection = (): FakePeerConnection => {
   const fake = {
     get createdChannel(): FakeDataChannel | undefined {
       return createdChannel;
+    },
+    get closed(): boolean {
+      return closed;
+    },
+    close: () => {
+      closed = true;
     },
     createDataChannel: () => {
       createdChannel = createFakeDataChannel();

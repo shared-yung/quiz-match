@@ -18,4 +18,6 @@ export type Signaling = {
   connectionState: () => ConnectionState;
   /** 接続確立の進み具合が変わるたびに呼ぶ。戻り値を呼ぶと解除する */
   onConnectionStateChanged: (handler: (state: ConnectionState) => void) => () => void;
+  /** この接続を閉じる。閉じた後は使えない */
+  close: () => void;
 };

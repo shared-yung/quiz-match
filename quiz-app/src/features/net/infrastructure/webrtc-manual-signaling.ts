@@ -125,5 +125,7 @@ export const createWebrtcManualSignaling = (deps: WebrtcManualSignalingDeps): Si
 
       return () => stateHandlers.delete(handler);
     },
+    // DataChannel も一緒に閉じ、相手側の Transport に close が届く
+    close: () => pc.close(),
   };
 };

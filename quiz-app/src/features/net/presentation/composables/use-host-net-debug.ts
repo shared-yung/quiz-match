@@ -1,7 +1,11 @@
 import { onScopeDispose, ref } from 'vue';
 import { ConnectionState, type PeerId, type Signaling } from '@/features/net/domain';
+import { createHostLobby, createPeerRegistry } from '@/features/net/use-case';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
+import type { MessageKey } from '@/shared/i18n';
+import { type PlayerId, playerIdSchema } from '@/shared/identity';
 import { HostMessageType } from '@/shared/protocol';
+import { generateRandomId } from '@/shared/random-id';
 import { useNetworking } from './use-networking';
 
 /** 招待1件分の表示状態。 */
@@ -14,18 +18,30 @@ export type HostNetDebugSlot = {
   state: ConnectionState;
 };
 
+/** 参加を受け付けたプレイヤー1人分の表示状態。 */
+export type HostNetDebugMember = {
+  playerId: PlayerId;
+  name: string;
+  presence: ConnectionState;
+};
+
 /**
  * ホスト星形の P2P 接続の確認用コンポーザブル（quiz-app/docs/adr/0003-signaling.md）。
  * setup の同期実行中に呼ぶ。
  *
  * プレイヤーを何人でも招待でき、各プレイヤーから届いたメッセージの一覧と、全員への
  * 一斉送信を扱う。本来のルーム作成 UI は #21。
+ *
+ * 参加と再参加は `HostLobby` で受け付ける。ルーム（room feature）はまだつないで
+ * いないので、参加は人数を問わず受け付け、途中経過は送らない。切断したプレイヤーは
+ * 「プレイヤーを招待」で新しい接続を作り、そこへ再参加してもらう。
  */
 export const useHostNetDebug = () => {
   const host = useNetworking().openHost();
   const signalings = new Map<PeerId, Signaling>();
 
   const slots = ref<HostNetDebugSlot[]>([]);
+  const members = ref<HostNetDebugMember[]>([]);
   const received = ref<string[]>([]);
   const broadcastText = ref('');
   let position = 0;
@@ -41,6 +57,31 @@ export const useHostNetDebug = () => {
       received.value.push(`${peerId}: ${JSON.stringify(message)}`);
     }),
   );
+
+  const lobby = createHostLobby({
+    messenger: host.messenger,
+    transport: host.transport,
+    registry: createPeerRegistry(),
+    admit: (name) => {
+      const playerId = playerIdSchema.parse(generateRandomId());
+      members.value.push({ playerId, name, presence: ConnectionState.Connecting });
+
+      return { accepted: true, playerId };
+    },
+    isMember: (playerId) => members.value.some((m) => m.playerId === playerId),
+    catchUp: () => [],
+    generateRejoinToken: generateRandomId,
+  });
+  onScopeDispose(
+    lobby.onPresenceChanged((playerId, presence) => {
+      const member = members.value.find((m) => m.playerId === playerId);
+      if (member != undefined) member.presence = presence;
+    }),
+  );
+  onScopeDispose(() => {
+    lobby.dispose();
+    host.close();
+  });
 
   const invite = async (): Promise<void> => {
     const { peerId, signaling } = host.invite();
@@ -65,18 +106,36 @@ export const useHostNetDebug = () => {
     broadcastText.value = '';
   };
 
-  return { slots, received, broadcastText, invite, acceptAnswer, broadcastChars, stateKey };
+  return {
+    slots,
+    members,
+    received,
+    broadcastText,
+    invite,
+    acceptAnswer,
+    broadcastChars,
+    stateKey,
+  };
 };
 
-/** 招待ごとの接続状態の表示文言のキー。 */
-const stateKey = (state: ConnectionState) => {
+/** 接続状態の表示文言のキー。招待ごとの接続と、参加者ごとの接続の両方に使う。 */
+const ConnectionStateMessageKey = {
+  Connecting: 'netHostDebug.connectionStateConnecting',
+  Connected: 'netHostDebug.connectionStateConnected',
+  Disconnected: 'netHostDebug.connectionStateDisconnected',
+} as const satisfies Record<string, MessageKey>;
+
+type ConnectionStateMessageKey =
+  (typeof ConnectionStateMessageKey)[keyof typeof ConnectionStateMessageKey];
+
+const stateKey = (state: ConnectionState): ConnectionStateMessageKey => {
   switch (state) {
     case ConnectionState.Connecting:
-      return 'netHostDebug.connectionStateConnecting' as const;
+      return ConnectionStateMessageKey.Connecting;
     case ConnectionState.Connected:
-      return 'netHostDebug.connectionStateConnected' as const;
+      return ConnectionStateMessageKey.Connected;
     case ConnectionState.Disconnected:
-      return 'netHostDebug.connectionStateDisconnected' as const;
+      return ConnectionStateMessageKey.Disconnected;
     default:
       throw new ExhaustiveError(state);
   }

@@ -45,10 +45,18 @@ export const createDataChannelTransport = (): DataChannelTransport => {
     /** 置き換えられた後の古い DataChannel は、もうこの相手を代表しない */
     const isCurrent = (): boolean => channels.get(peerId) === channel;
 
+    /**
+     * 変わったときだけ知らせる。Chrome は相手が作った DataChannel を開いた状態で渡し、
+     * その後で `open` も発火するので、イベントの数だけ知らせると「接続済み」が重なる
+     */
+    let notified: ConnectionState | undefined;
     const notifyState = (): void => {
       if (!isCurrent()) return;
 
       const state = connectionStateOf[channel.readyState];
+      if (state === notified) return;
+
+      notified = state;
       stateHandlers.forEach((handler) => handler(peerId, state));
     };
 

@@ -14,6 +14,7 @@ const validMessages = {
   [PlayerMessageType.Join]: { type: PlayerMessageType.Join, name: 'たろう' },
   [PlayerMessageType.Buzz]: { type: PlayerMessageType.Buzz },
   [PlayerMessageType.Answer]: { type: PlayerMessageType.Answer, text: '答え' },
+  [PlayerMessageType.Rejoin]: { type: PlayerMessageType.Rejoin, token: 'token-1' },
 } satisfies Record<PlayerMessageType, PlayerMessage>;
 
 describe('Player → Host のメッセージ', () => {
@@ -23,7 +24,7 @@ describe('Player → Host のメッセージ', () => {
     });
   });
 
-  it('この3つ以外は弾く', () => {
+  it('この4つ以外は弾く', () => {
     expect(playerMessageSchema.safeParse({ type: HostMessageType.JudgeResult }).success).toBe(
       false,
     );
@@ -55,6 +56,17 @@ describe('Player → Host のメッセージ', () => {
       const result = playerMessageSchema.parse({ type: PlayerMessageType.Buzz, playerId: 'p2' });
 
       expect(result).not.toHaveProperty('playerId');
+    });
+  });
+
+  describe('rejoin', () => {
+    it.each([
+      ['空のトークン', ''],
+      ['64文字を超えるトークン', 'a'.repeat(65)],
+    ])('%s を弾く', (_name, token) => {
+      expect(playerMessageSchema.safeParse({ type: PlayerMessageType.Rejoin, token }).success).toBe(
+        false,
+      );
     });
   });
 

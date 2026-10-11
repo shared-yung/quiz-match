@@ -7,6 +7,7 @@ import {
   createWebrtcPlayerNetwork,
 } from '@/features/net/infrastructure';
 import { provideNetworking } from '@/features/net/presentation';
+import { generateRandomId } from '@/shared/random-id';
 
 /**
  * net feature を組み立ててアプリに provide する。合成ルート（boot）から1回だけ呼ぶ。
@@ -27,7 +28,7 @@ export const installNet = (app: App): void => {
     openHost: () =>
       createWebrtcHostNetwork({
         createSignaling,
-        generatePeerId: () => peerIdSchema.parse(crypto.randomUUID()),
+        generatePeerId: () => peerIdSchema.parse(generateRandomId()),
       }),
     openPlayer: () => createWebrtcPlayerNetwork({ createSignaling }),
   });

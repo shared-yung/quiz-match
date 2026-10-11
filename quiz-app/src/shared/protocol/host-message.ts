@@ -4,6 +4,7 @@ import {
   playerRefSchema,
   playerSummarySchema,
   questionIndexSchema,
+  rejoinTokenSchema,
   revealedCharSchema,
   ruleSetPayloadSchema,
   scoresSchema,
@@ -21,6 +22,8 @@ import {
 export const HostMessageType = {
   /** ルームの現在の状態 */
   RoomState: 'room/state',
+  /** 参加の受理 */
+  JoinAccepted: 'join/accepted',
   /** 参加の拒否 */
   JoinRejected: 'join/rejected',
   /** 出題の開始 */
@@ -49,7 +52,8 @@ export type HostMessageType = (typeof HostMessageType)[keyof typeof HostMessageT
  * ルームの現在の状態。参加時と、参加者が増減したときに全員へ送る。
  *
  * 出題中の問題文はここに含めない。**再接続したプレイヤーに問題文を渡さない**
- * ことで、1文字ずつ公開する意味を保つ（再接続時の同期の粒度は #20）。
+ * ことで、1文字ずつ公開する意味を保つ。途中から入った人には公開済みの文字だけを
+ * 送り直す（`catchUpMessages`）。
  */
 export const roomStateMessageSchema = z.object({
   type: z.literal(HostMessageType.RoomState),
@@ -58,11 +62,27 @@ export const roomStateMessageSchema = z.object({
   scores: scoresSchema,
   phase: phaseSchema,
 });
+export type RoomStateMessage = z.infer<typeof roomStateMessageSchema>;
+
+/**
+ * 参加を受け付けた。**受け付けた本人にだけ送る。**
+ *
+ * プレイヤーはここで初めて自分の id を知る。`rejoinToken` は接続が切れたときに
+ * `rejoin` で名乗り直すための合言葉で、他人に渡ると乗っ取られる。`rejoin` を
+ * 受け付けたときも、同じ id とトークンでこれを返す。
+ */
+export const joinAcceptedMessageSchema = z.object({
+  type: z.literal(HostMessageType.JoinAccepted),
+  playerId: playerRefSchema,
+  rejoinToken: rejoinTokenSchema,
+});
 
 /** 参加を断った理由。 */
 export const JoinRejectedReason = {
   /** 参加人数が上限に達している */
   RoomFull: 'roomFull',
+  /** 再参加のトークンに覚えが無い（ホストが入れ替わった、または退室済み） */
+  UnknownToken: 'unknownToken',
 } as const;
 
 export const joinRejectedReasonSchema = z.enum(JoinRejectedReason);
@@ -195,6 +215,7 @@ export const gameEndMessageSchema = z.object({
  */
 export const hostMessageSchema = z.discriminatedUnion('type', [
   roomStateMessageSchema,
+  joinAcceptedMessageSchema,
   joinRejectedMessageSchema,
   questionStartMessageSchema,
   questionCharMessageSchema,
