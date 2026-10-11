@@ -5,7 +5,7 @@ import type { PeerId } from './peer';
  * 通信手段を抽象化した出力 port。
  *
  * **文字列の送受信に徹する。** プロトコルのメッセージへのエンコード/デコードは
- * net の infrastructure が行い、ここでは知らない（docs/adr/0002-protocol-types.md
+ * match の infrastructure が行い、ここでは知らない（docs/adr/0002-protocol-types.md
  * と同じ考え方）。WebRTC に限らず差し替えられるよう、`RTCDataChannel` 固有の形は
  * 持ち込まない。
  */

@@ -12,7 +12,7 @@ import { z } from 'zod';
  * ホストの時計での時刻（epoch ミリ秒）。
  *
  * 回線上の時刻（`shared/protocol` の `timestampSchema`）とは別物。あちらは検証を
- * 通っただけの数値で、こちらへの変換は net の infrastructure が行う
+ * 通っただけの数値で、こちらへの変換は match の infrastructure が行う
  * （quiz-app/docs/adr/0002-protocol-types.md）。
  */
 export const epochMsSchema = z.number().int().nonnegative().brand<'EpochMs'>();
@@ -22,7 +22,7 @@ export type EpochMs = z.infer<typeof epochMsSchema>;
  * 期間（ミリ秒）。
  *
  * 回線上の RuleSet の時間項目（`shared/protocol` の `ruleSetPayloadSchema`）は素の
- * 数値のままで、こちらへの変換は net の infrastructure が行う。
+ * 数値のままで、こちらへの変換は match の infrastructure が行う。
  */
 export const durationMsSchema = z.number().int().nonnegative().brand<'DurationMs'>();
 export type DurationMs = z.infer<typeof durationMsSchema>;

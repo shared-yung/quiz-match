@@ -13,6 +13,7 @@
 
 `architecture/` — このプロジェクト固有の設計。層構成やテスト方針などリポジトリ共通のものは[ルートの docs/](../../docs/README.md)。
 
+- [match feature の構成](architecture/match.md) — room・quiz・net をどうつなぐか、ルーム作成・参加の画面の確認手順
 - [net feature の構成](architecture/net.md) — ホスト星形を Signaling / Transport / Messenger でどう組み立てるか、手動での接続確認の手順
 
 ## 決定の記録
@@ -21,5 +22,6 @@
 - [0002 プロトコルの型をドメインの型から独立させる](adr/0002-protocol-types.md) — 同じ形のスキーマを2か所に持つ理由と、ズレをどこで検知するか
 - [0003 シグナリングは手動 SDP 交換を暫定手段にし、本実装は ASP.NET (SignalR) に置く](adr/0003-signaling.md) — バックエンドを待たずに進める方法と、non-trickle ICE にした理由
 - [0004 切断は退室とせず、再参加はホストが渡すトークンで本人を確かめる](adr/0004-rejoin-token.md) — 表示名や id で照合しない理由と、ホストの切断から復帰しない理由
+- [0005 room・quiz・net をつなぐ match feature を置き、型の変換もそこで行う](adr/0005-match-feature.md) — feature の間の循環を避ける置き方と、入口が画面を再 export することの扱い
 
 リポジトリ全体にまたがる判断は[ルートの docs/adr/](../../docs/adr/)。

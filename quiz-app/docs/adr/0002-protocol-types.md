@@ -22,6 +22,8 @@
 
 **選択肢 1 を採用する。** `src/shared/protocol/` に回線専用のスキーマを置き、ドメインの型は参照しない。ドメイン型への変換は **net の infrastructure**（[#17](https://github.com/shared-yung/quiz-match/issues/17) 以降）で行う。
 
+> 変換の置き場所は [ADR 0005](0005-match-feature.md) で **match の infrastructure** に改めた。net が room と quiz に依存すると、room が net を使うときに feature の間で循環するため。回線の型とドメインの型を独立させるという本題は変わらない。
+
 ## 根拠
 
 ### 重複ではなく、役割が違う
