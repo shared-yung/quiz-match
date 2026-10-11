@@ -2,8 +2,10 @@ import { onScopeDispose, ref } from 'vue';
 import { ConnectionState, type PeerId, type Signaling } from '@/features/net/domain';
 import { createHostLobby, createPeerRegistry } from '@/features/net/use-case';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
+import type { MessageKey } from '@/shared/i18n';
 import { type PlayerId, playerIdSchema } from '@/shared/identity';
 import { HostMessageType } from '@/shared/protocol';
+import { generateRandomId } from '@/shared/random-id';
 import { useNetworking } from './use-networking';
 
 /** 招待1件分の表示状態。 */
@@ -61,14 +63,14 @@ export const useHostNetDebug = () => {
     transport: host.transport,
     registry: createPeerRegistry(),
     admit: (name) => {
-      const playerId = playerIdSchema.parse(crypto.randomUUID());
+      const playerId = playerIdSchema.parse(generateRandomId());
       members.value.push({ playerId, name, presence: ConnectionState.Connecting });
 
       return { accepted: true, playerId };
     },
     isMember: (playerId) => members.value.some((m) => m.playerId === playerId),
     catchUp: () => [],
-    generateRejoinToken: () => crypto.randomUUID(),
+    generateRejoinToken: generateRandomId,
   });
   onScopeDispose(
     lobby.onPresenceChanged((playerId, presence) => {
@@ -116,15 +118,24 @@ export const useHostNetDebug = () => {
   };
 };
 
-/** 招待ごとの接続状態の表示文言のキー。 */
-const stateKey = (state: ConnectionState) => {
+/** 接続状態の表示文言のキー。招待ごとの接続と、参加者ごとの接続の両方に使う。 */
+const ConnectionStateMessageKey = {
+  Connecting: 'netHostDebug.connectionStateConnecting',
+  Connected: 'netHostDebug.connectionStateConnected',
+  Disconnected: 'netHostDebug.connectionStateDisconnected',
+} as const satisfies Record<string, MessageKey>;
+
+type ConnectionStateMessageKey =
+  (typeof ConnectionStateMessageKey)[keyof typeof ConnectionStateMessageKey];
+
+const stateKey = (state: ConnectionState): ConnectionStateMessageKey => {
   switch (state) {
     case ConnectionState.Connecting:
-      return 'netHostDebug.connectionStateConnecting' as const;
+      return ConnectionStateMessageKey.Connecting;
     case ConnectionState.Connected:
-      return 'netHostDebug.connectionStateConnected' as const;
+      return ConnectionStateMessageKey.Connected;
     case ConnectionState.Disconnected:
-      return 'netHostDebug.connectionStateDisconnected' as const;
+      return ConnectionStateMessageKey.Disconnected;
     default:
       throw new ExhaustiveError(state);
   }

@@ -7,8 +7,30 @@ import {
   PlayerLobbyStatus,
 } from '@/features/net/use-case';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
+import type { MessageKey } from '@/shared/i18n';
 import { PlayerMessageType } from '@/shared/protocol';
 import { useNetworking } from './use-networking';
+
+/** ホストとの接続状態の表示文言のキー。 */
+const ConnectionStateMessageKey = {
+  Connecting: 'netPlayerDebug.connectionStateConnecting',
+  Connected: 'netPlayerDebug.connectionStateConnected',
+  Disconnected: 'netPlayerDebug.connectionStateDisconnected',
+} as const satisfies Record<string, MessageKey>;
+
+type ConnectionStateMessageKey =
+  (typeof ConnectionStateMessageKey)[keyof typeof ConnectionStateMessageKey];
+
+/** 参加状態の表示文言のキー。 */
+const LobbyStateMessageKey = {
+  Waiting: 'netPlayerDebug.lobbyWaiting',
+  Joining: 'netPlayerDebug.lobbyJoining',
+  Joined: 'netPlayerDebug.lobbyJoined',
+  Rejected: 'netPlayerDebug.lobbyRejected',
+  Disconnected: 'netPlayerDebug.lobbyDisconnected',
+} as const satisfies Record<string, MessageKey>;
+
+type LobbyStateMessageKey = (typeof LobbyStateMessageKey)[keyof typeof LobbyStateMessageKey];
 
 /**
  * プレイヤー側の P2P 接続の確認用コンポーザブル（quiz-app/docs/adr/0003-signaling.md）。
@@ -68,32 +90,32 @@ export const usePlayerNetDebug = () => {
     player.messenger.send({ type: PlayerMessageType.Buzz });
   };
 
-  const stateKey = computed(() => {
+  const stateKey = computed((): ConnectionStateMessageKey => {
     switch (state.value) {
       case ConnectionState.Connecting:
-        return 'netPlayerDebug.connectionStateConnecting' as const;
+        return ConnectionStateMessageKey.Connecting;
       case ConnectionState.Connected:
-        return 'netPlayerDebug.connectionStateConnected' as const;
+        return ConnectionStateMessageKey.Connected;
       case ConnectionState.Disconnected:
-        return 'netPlayerDebug.connectionStateDisconnected' as const;
+        return ConnectionStateMessageKey.Disconnected;
       default:
         throw new ExhaustiveError(state.value);
     }
   });
 
-  const lobbyStateKey = computed(() => {
+  const lobbyStateKey = computed((): LobbyStateMessageKey => {
     const current = lobbyState.value;
     switch (current.status) {
       case PlayerLobbyStatus.Waiting:
-        return 'netPlayerDebug.lobbyWaiting' as const;
+        return LobbyStateMessageKey.Waiting;
       case PlayerLobbyStatus.Joining:
-        return 'netPlayerDebug.lobbyJoining' as const;
+        return LobbyStateMessageKey.Joining;
       case PlayerLobbyStatus.Joined:
-        return 'netPlayerDebug.lobbyJoined' as const;
+        return LobbyStateMessageKey.Joined;
       case PlayerLobbyStatus.Rejected:
-        return 'netPlayerDebug.lobbyRejected' as const;
+        return LobbyStateMessageKey.Rejected;
       case PlayerLobbyStatus.Disconnected:
-        return 'netPlayerDebug.lobbyDisconnected' as const;
+        return LobbyStateMessageKey.Disconnected;
       default:
         throw new ExhaustiveError(current);
     }
