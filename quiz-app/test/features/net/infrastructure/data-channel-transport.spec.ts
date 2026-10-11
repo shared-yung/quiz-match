@@ -139,6 +139,21 @@ describe('createDataChannelTransport', () => {
       ]);
     });
 
+    it('開いた状態で登録した DataChannel に後から open が届いても、接続済みは1回だけ知らせる', () => {
+      // Chrome は相手が作った DataChannel を、開いた状態で datachannel イベントに渡し、
+      // その後で open イベントも発火する
+      const transport = createDataChannelTransport();
+      const channel = createFakeDataChannel();
+      const handler = vi.fn();
+      transport.onConnectionStateChanged(handler);
+      channel.open();
+
+      transport.attach(peer('a'), channel);
+      channel.open();
+
+      expect(handler.mock.calls).toEqual([[peer('a'), ConnectionState.Connected]]);
+    });
+
     it('戻り値を呼ぶと、以降そのハンドラは呼ばれない', () => {
       const transport = createDataChannelTransport();
       const channel = createFakeDataChannel();
