@@ -26,13 +26,15 @@
 | `join/rejected`        | `join` / `rejoin` を断ったとき（下記） | 理由（満員 / トークンに覚えが無い）         |
 | `question/start`       | `ready` → `revealing`                  | 問題番号。**問題文は含めない**              |
 | `question/char`        | 公開中、`revealIntervalMs` ごと        | 位置と1文字                                 |
-| `question/reveal-stop` | 早押し受理、または手動停止             | 停止理由                                    |
+| `question/reveal-stop` | 早押し受理、またはホストの一時停止     | 停止理由                                    |
 | `buzz/accepted`        | 早押しを採用したとき                   | 採用したプレイヤー、回答の締め切り時刻      |
 | `buzz/rejected`        | 押下を却下したとき（下記）             | 理由（先着に負けた / ロックアウト中）       |
 | `judge/result`         | ホストが判定したとき                   | 対象プレイヤー、正誤、次の状態              |
 | `score/update`         | 得点が変わったとき                     | 全員の得点                                  |
 | `question/end`         | `closed` に入ったとき                  | **正解文**、終了理由                        |
 | `game/end`             | 勝利条件を満たしたとき                 | 最終得点、勝者（引き分けなら複数）          |
+
+**一時停止からの再開に専用のメッセージは無い。** `question/reveal-stop`（`manual`）の後に `question/char` が届いたら、公開が再開したと分かる。停止中も `phase` は `revealing` のままで、早押しできる（[ADR 0006](../adr/0006-manual-reveal-pause.md)）。
 
 ## Player → Host
 
@@ -55,7 +57,7 @@
 
 `PlayerId` で名乗らせないのは、id が `room/state` で全員に見えているため。
 
-**参加・再参加を受け付けたら、本人に途中経過を送り直す。** `join/accepted` に続けて、`room/state` と、出題中（`revealing` / `buzzed` / `judging`）なら `question/start` と公開済みの `question/char` を位置の順に送る。最初から居た人が受け取ったのと同じメッセージを同じ順で並べるだけで、専用のメッセージは無い。公開済みの文字しか送らないので、1文字ずつ公開する意味は崩れない。
+**参加・再参加を受け付けたら、本人に途中経過を送り直す。** `join/accepted` に続けて、`room/state` と、出題中（`revealing` / `buzzed` / `judging`）なら `question/start` と公開済みの `question/char` を位置の順に送る。一時停止中なら最後に `question/reveal-stop`（`manual`）を足す。最初から居た人が受け取ったのと同じメッセージを同じ順で並べるだけで、専用のメッセージは無い。公開済みの文字しか送らないので、1文字ずつ公開する意味は崩れない。
 
 早押しの採用（`buzz/accepted`）や、`closed` の後の正解文（`question/end`）は送り直さない。状態は `room/state` の `phase` で分かる。
 
