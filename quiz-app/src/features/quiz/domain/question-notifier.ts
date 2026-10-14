@@ -1,6 +1,6 @@
 import type { PlayerId } from '@/shared/identity';
 import type { EpochMs } from '@/shared/time';
-import type { Phase, QuestionState } from './question-state';
+import type { CloseReason, Phase, QuestionState } from './question-state';
 import type { Scores } from './scoring';
 
 /**
@@ -30,6 +30,11 @@ export type QuestionNotifier = {
   /** 1文字公開した。`position` は 0 始まりで、コードポイントで数える */
   charRevealed: (position: number, char: string) => void;
   /**
+   * ホストが公開を一時停止した。**再開は知らせない。** 次の `charRevealed` で分かる
+   * （docs/adr/0006-manual-reveal-pause.md）
+   */
+  revealPaused: () => void;
+  /**
    * 早押しを採用した。締め切りはホストの時計での絶対時刻。
    * **公開の停止もこれで知る。** 採用と同時に文字の送信は止まっている
    */
@@ -40,6 +45,8 @@ export type QuestionNotifier = {
   judged: (playerId: PlayerId, correct: boolean, nextPhase: Phase) => void;
   /** 得点が変わった。**全員分**を知らせる（差分は送らない） */
   scoresChanged: (scores: Scores) => void;
+  /** 問題が終わった。**ここで初めて正解文（問題文の全文）を知らせる** */
+  questionClosed: (answerText: string, reason: CloseReason) => void;
   /** 勝利条件を満たしてゲームが終わった。**引き分けなら勝者は複数** */
   gameEnded: (winners: readonly PlayerId[], scores: Scores) => void;
   /** 状態が変わった。時間切れのように、呼び出しの外で起きる遷移もここで知る */
