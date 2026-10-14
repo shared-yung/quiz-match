@@ -9,6 +9,7 @@ import {
   type Scoring,
   scoreOf,
 } from '@/features/quiz';
+import type { QuestionChannel } from '@/features/match/use-case';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import type { PlayerId } from '@/shared/identity';
 import {
@@ -17,7 +18,6 @@ import {
   Phase,
   QuestionEndReason,
   RevealStopReason,
-  type HostMessage,
   type QuestionProgress,
   type Scores as ScoresPayload,
 } from '@/shared/protocol';
@@ -57,7 +57,7 @@ export const toWirePhase = (phase: QuizPhase): Phase => wirePhase[phase];
  * 全員の得点を回線の形にする。**並びは参加者の順。** 判定の記録が無い人も 0 点で載せる。
  * 回線の得点は表示順をホストが決める配列なので、ここで並びを決める。
  */
-export const toScoresPayload = (
+const toScoresPayload = (
   scores: Scores,
   players: readonly PlayerId[],
   scoring: Scoring,
@@ -93,18 +93,6 @@ export const toQuestionProgress = (state: QuestionState): QuestionProgress | und
     default:
       throw new ExhaustiveError(state);
   }
-};
-
-/** 出題のメッセージの宛先と、得点を回線の形にするのに要るもの。 */
-export type QuestionChannel = {
-  /** 接続中の全員へ送る */
-  broadcast: (message: HostMessage) => void;
-  /** そのプレイヤーにだけ送る。接続が無ければ何もしない */
-  sendToPlayer: (playerId: PlayerId, message: HostMessage) => void;
-  /** 得点の点数 */
-  scoring: Scoring;
-  /** 現在の参加者。得点を載せる順でもある */
-  players: () => readonly PlayerId[];
 };
 
 /**

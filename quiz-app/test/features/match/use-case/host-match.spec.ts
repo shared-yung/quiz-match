@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHostMatch, type HostMatchDeps } from '@/features/match/use-case/host-match';
 import { ConnectionState } from '@/features/net';
+import { Phase as QuizPhase, type QuestionState } from '@/features/quiz';
 import { ruleSetSchema, type Room } from '@/features/room';
 import {
   HostMessageType,
@@ -8,18 +9,30 @@ import {
   OnWrongAnswer,
   Phase,
   PlayerMessageType,
+  QuestionEndReason,
+  RevealStopReason,
+  type HostMessage,
   type RoomStateMessage,
   WinConditionType,
 } from '@/shared/protocol';
 import { createFakeHostNetwork } from './host-network.fake';
+import {
+  createFakeTimersTimer,
+  fakeQuestionNotifier,
+  fakeQuestionProgress,
+  fakeWirePhase,
+} from './question-wire.fake';
 
 const ruleSet = ruleSetSchema.parse({ maxPlayers: 2, answerTimeLimitMs: 7_000 });
 
 /**
  * 変換の中身は infrastructure のテスト（room-state.spec.ts）で確かめるので、ここでは
- * 参加者の名前だけを写す。ルールは固定の値でよい。
+ * 参加者の名前と出題の状態だけを写す。ルールは固定の値でよい。
  */
-const toRoomState = (room: Room): RoomStateMessage => ({
+const toRoomState = (
+  room: Room,
+  question: QuestionState = { phase: QuizPhase.Idle, questionIndex: 0 },
+): RoomStateMessage => ({
   type: HostMessageType.RoomState,
   players: room.players.map((p) => ({ id: p.id, name: p.name })),
   ruleSet: {
@@ -32,7 +45,7 @@ const toRoomState = (room: Room): RoomStateMessage => ({
     maxPlayers: 2,
   },
   scores: [],
-  phase: Phase.Idle,
+  phase: fakeWirePhase(question.phase),
 });
 
 const setup = (overrides: Partial<HostMatchDeps> = {}) => {
@@ -45,6 +58,9 @@ const setup = (overrides: Partial<HostMatchDeps> = {}) => {
     generateId: () => `id-${String(++idSeq)}`,
     generateRejoinToken: () => `token-${String(++tokenSeq)}`,
     toRoomState,
+    toQuestionProgress: fakeQuestionProgress,
+    toQuestionNotifier: fakeQuestionNotifier,
+    timer: createFakeTimersTimer(),
     ...overrides,
   });
 
@@ -148,5 +164,134 @@ describe('HostMatch', () => {
 
     expect(network.closed).toBe(true);
     expect(match.room().players).toEqual([]);
+  });
+});
+
+describe('HostMatch の出題', () => {
+  /** 公開間隔（ruleSet の既定値） */
+  const interval = ruleSet.revealIntervalMs;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** 出題のメッセージだけを送った順に取り出す */
+  const questionMessages = (messages: readonly HostMessage[]) =>
+    messages.filter((message) => questionTypes.has(message.type));
+
+  const questionTypes = new Set<HostMessage['type']>([
+    HostMessageType.QuestionStart,
+    HostMessageType.QuestionChar,
+    HostMessageType.QuestionRevealStop,
+    HostMessageType.QuestionEnd,
+  ]);
+
+  it('問題を入れて公開すると、全員に問題の開始と1文字ずつが届く', () => {
+    const { match, network } = setup();
+
+    match.setQuestion('クイズ');
+    match.startReveal();
+    vi.advanceTimersByTime(interval * 2);
+
+    expect(questionMessages(network.broadcasted)).toEqual([
+      { type: HostMessageType.QuestionStart, questionIndex: 0 },
+      { type: HostMessageType.QuestionChar, position: 0, char: 'ク' },
+      { type: HostMessageType.QuestionChar, position: 1, char: 'イ' },
+    ]);
+  });
+
+  it('出題の状態を引け、変わるたびに知らせる', () => {
+    const { match } = setup();
+    const phases: QuizPhase[] = [];
+    match.onQuestionChanged((state) => phases.push(state.phase));
+
+    match.setQuestion('クイズ');
+    match.startReveal();
+    vi.advanceTimersByTime(interval);
+
+    expect(phases).toEqual([QuizPhase.Ready, QuizPhase.Revealing, QuizPhase.Revealing]);
+    expect(match.question()).toMatchObject({ phase: QuizPhase.Revealing, revealedCount: 1 });
+  });
+
+  it('一時停止すると手動の停止が届いて文字が止まり、再開すると続きから届く', () => {
+    const { match, network } = setup();
+    match.setQuestion('クイズ');
+    match.startReveal();
+    vi.advanceTimersByTime(interval);
+
+    match.pauseReveal();
+    vi.advanceTimersByTime(interval * 10);
+    match.resumeReveal();
+    vi.advanceTimersByTime(interval);
+
+    expect(questionMessages(network.broadcasted).slice(1)).toEqual([
+      { type: HostMessageType.QuestionChar, position: 0, char: 'ク' },
+      { type: HostMessageType.QuestionRevealStop, reason: RevealStopReason.Manual },
+      { type: HostMessageType.QuestionChar, position: 1, char: 'イ' },
+    ]);
+  });
+
+  it('出題中に参加した人には、room/state に続けて公開済みの文字を送る', () => {
+    const { match, network } = setup();
+    match.setQuestion('クイズ');
+    match.startReveal();
+    vi.advanceTimersByTime(interval * 2);
+    const { peerId } = match.invite();
+
+    network.receive(peerId, { type: PlayerMessageType.Join, name: 'たろう' });
+
+    expect(network.sentTo(peerId).slice(1)).toEqual([
+      toRoomState(match.room(), match.question()),
+      { type: HostMessageType.QuestionStart, questionIndex: 0 },
+      { type: HostMessageType.QuestionChar, position: 0, char: 'ク' },
+      { type: HostMessageType.QuestionChar, position: 1, char: 'イ' },
+    ]);
+  });
+
+  it('room/state には今の出題の状態を載せる', () => {
+    const { match, network } = setup();
+    match.setQuestion('クイズ');
+    const { peerId } = match.invite();
+
+    network.receive(peerId, { type: PlayerMessageType.Join, name: 'たろう' });
+
+    expect(network.broadcasted.at(-1)).toMatchObject({
+      type: HostMessageType.RoomState,
+      phase: Phase.Ready,
+    });
+  });
+
+  it('全文公開後に誰も押さなければ、猶予の後に正解文が届き、次の問題へ進める', () => {
+    const { match, network } = setup();
+    match.setQuestion('クイズ');
+    match.startReveal();
+    vi.advanceTimersByTime(interval * 3 + ruleSet.postRevealGraceMs);
+
+    expect(questionMessages(network.broadcasted).at(-1)).toEqual({
+      type: HostMessageType.QuestionEnd,
+      answerText: 'クイズ',
+      reason: QuestionEndReason.TimeUp,
+    });
+
+    match.nextQuestion();
+
+    expect(match.question()).toEqual({ phase: QuizPhase.Idle, questionIndex: 1 });
+  });
+
+  it('close したら公開を止める', () => {
+    const { match, network } = setup();
+    match.setQuestion('クイズ');
+    match.startReveal();
+
+    match.close();
+    vi.advanceTimersByTime(interval * 10);
+
+    expect(questionMessages(network.broadcasted)).toEqual([
+      { type: HostMessageType.QuestionStart, questionIndex: 0 },
+    ]);
   });
 });
