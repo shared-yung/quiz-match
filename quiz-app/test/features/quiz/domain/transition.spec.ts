@@ -59,11 +59,21 @@ const revealing = (over: Partial<RevealingState> = {}): RevealingState => ({
   text: 'クイズ',
   revealedCount: 0,
   lockedOut: [],
+  paused: false,
+  ...over,
+});
+
+/** 公開が始まった後の共通部分。停止の印は公開中にしか無いので含めない */
+const inPlay = (over: Partial<Omit<RevealingState, 'phase' | 'paused'>> = {}) => ({
+  questionIndex: 0,
+  text: 'クイズ',
+  revealedCount: 0,
+  lockedOut: [],
   ...over,
 });
 
 const buzzed = (over: Partial<BuzzedState> = {}): BuzzedState => ({
-  ...revealing(),
+  ...inPlay(),
   phase: Phase.Buzzed,
   buzzer: alice,
   answerDeadline: at(11_000),
@@ -71,7 +81,7 @@ const buzzed = (over: Partial<BuzzedState> = {}): BuzzedState => ({
 });
 
 const judging = (over: Partial<JudgingState> = {}): JudgingState => ({
-  ...revealing({ revealedCount: 1 }),
+  ...inPlay({ revealedCount: 1 }),
   phase: Phase.Judging,
   answerer: alice,
   answer: '答え',
@@ -121,6 +131,7 @@ describe('出題の状態遷移', () => {
         text: 'クイズ',
         revealedCount: 0,
         lockedOut: [],
+        paused: false,
       });
     });
 
@@ -310,6 +321,75 @@ describe('出題の状態遷移', () => {
     });
   });
 
+  describe('一時停止', () => {
+    const pause: QuestionEvent = { type: QuestionEventType.PauseReveal };
+    const resume: QuestionEvent = { type: QuestionEventType.ResumeReveal };
+
+    it('公開中に停止すると、公開済みの文字数を保ったまま停止中になる', () => {
+      const next = accepted(transition(revealing({ revealedCount: 1 }), pause, context()));
+
+      expect(next).toEqual(revealing({ revealedCount: 1, paused: true }));
+    });
+
+    it('再開すると停止が解ける', () => {
+      const state = revealing({ revealedCount: 1, paused: true });
+
+      expect(accepted(transition(state, resume, context()))).toEqual(
+        revealing({ revealedCount: 1 }),
+      );
+    });
+
+    it('停止中は文字を進めない', () => {
+      const state = revealing({ paused: true });
+
+      expect(rejected(transition(state, { type: QuestionEventType.RevealNext }, context()))).toBe(
+        RejectReason.Paused,
+      );
+    });
+
+    it('停止中にもう一度は止められない', () => {
+      expect(rejected(transition(revealing({ paused: true }), pause, context()))).toBe(
+        RejectReason.Paused,
+      );
+    });
+
+    it('止まっていなければ再開できない', () => {
+      expect(rejected(transition(revealing(), resume, context()))).toBe(RejectReason.NotPaused);
+    });
+
+    it('全文公開後（猶予中）は止められない', () => {
+      const state = revealing({ revealedCount: 3 });
+
+      expect(rejected(transition(state, pause, context()))).toBe(RejectReason.FullyRevealed);
+    });
+
+    it('停止中も早押しを受理する。押した後の状態は停止の印を持たない', () => {
+      const state = revealing({ revealedCount: 2, paused: true });
+
+      const next = accepted(
+        transition(state, { type: QuestionEventType.Buzz, playerId: bob }, context()),
+      );
+
+      expect(next).toEqual({
+        phase: Phase.Buzzed,
+        questionIndex: 0,
+        text: 'クイズ',
+        revealedCount: 2,
+        lockedOut: [],
+        buzzer: bob,
+        answerDeadline: at(11_000),
+      });
+    });
+
+    it('停止中に押した人が誤答（続行）すると、停止を解いて公開を再開する', () => {
+      const next = accepted(
+        transition(judging(), { type: QuestionEventType.Judge, correct: false }, context()),
+      );
+
+      expect(next).toMatchObject({ phase: Phase.Revealing, paused: false });
+    });
+  });
+
   describe('不正な遷移', () => {
     const states: QuestionState[] = [idle(), ready(), revealing(), buzzed(), judging(), closed()];
 
@@ -321,6 +401,8 @@ describe('出題の状態遷移', () => {
         QuestionEventType.RevealNext,
         QuestionEventType.Buzz,
         QuestionEventType.GraceExpired,
+        QuestionEventType.PauseReveal,
+        QuestionEventType.ResumeReveal,
       ],
       [Phase.Buzzed]: [QuestionEventType.SubmitAnswer, QuestionEventType.AnswerTimeout],
       [Phase.Judging]: [QuestionEventType.Judge],
@@ -337,6 +419,8 @@ describe('出題の状態遷移', () => {
       { type: QuestionEventType.Judge, correct: true },
       { type: QuestionEventType.GraceExpired },
       { type: QuestionEventType.NextQuestion },
+      { type: QuestionEventType.PauseReveal },
+      { type: QuestionEventType.ResumeReveal },
     ];
 
     const invalid = states.flatMap((state) =>

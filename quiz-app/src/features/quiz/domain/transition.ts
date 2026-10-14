@@ -74,6 +74,10 @@ export const QuestionEventType = {
   StartReveal: 'startReveal',
   /** 公開間隔が来た。1文字進める */
   RevealNext: 'revealNext',
+  /** ホストが公開を一時停止した */
+  PauseReveal: 'pauseReveal',
+  /** ホストが一時停止した公開を再開した */
+  ResumeReveal: 'resumeReveal',
   /** プレイヤーが早押しした */
   Buzz: 'buzz',
   /** 押した人から回答が届いた */
@@ -94,6 +98,8 @@ export type QuestionEvent =
   | { type: typeof QuestionEventType.SetQuestion; text: string }
   | { type: typeof QuestionEventType.StartReveal }
   | { type: typeof QuestionEventType.RevealNext }
+  | { type: typeof QuestionEventType.PauseReveal }
+  | { type: typeof QuestionEventType.ResumeReveal }
   | { type: typeof QuestionEventType.Buzz; playerId: PlayerId }
   | { type: typeof QuestionEventType.SubmitAnswer; playerId: PlayerId; text: string }
   | { type: typeof QuestionEventType.AnswerTimeout }
@@ -116,6 +122,10 @@ export const RejectReason = {
   FullyRevealed: 'fullyRevealed',
   /** まだ全文公開されていない */
   NotFullyRevealed: 'notFullyRevealed',
+  /** 公開を一時停止している */
+  Paused: 'paused',
+  /** 公開を一時停止していない */
+  NotPaused: 'notPaused',
   /** ロックアウト中のプレイヤーの押下 */
   LockedOut: 'lockedOut',
   /** 押した本人以外からの回答 */
@@ -193,6 +203,8 @@ const judgeWrong = (
     // 公開済みの文字数は維持する。**続きから再開する**
     revealedCount: state.revealedCount,
     lockedOut,
+    // 一時停止中に押されていても、公開を再開する
+    paused: false,
   });
 };
 
@@ -220,14 +232,37 @@ export const transition = (
     case QuestionEventType.StartReveal: {
       if (state.phase !== Phase.Ready) return reject(RejectReason.InvalidPhase);
 
-      return accept({ ...state, phase: Phase.Revealing, revealedCount: 0, lockedOut: [] });
+      return accept({
+        ...state,
+        phase: Phase.Revealing,
+        revealedCount: 0,
+        lockedOut: [],
+        paused: false,
+      });
     }
 
     case QuestionEventType.RevealNext: {
       if (state.phase !== Phase.Revealing) return reject(RejectReason.InvalidPhase);
+      if (state.paused) return reject(RejectReason.Paused);
       if (isFullyRevealed(state)) return reject(RejectReason.FullyRevealed);
 
       return accept({ ...state, revealedCount: state.revealedCount + 1 });
+    }
+
+    case QuestionEventType.PauseReveal: {
+      if (state.phase !== Phase.Revealing) return reject(RejectReason.InvalidPhase);
+      if (state.paused) return reject(RejectReason.Paused);
+      // 猶予は止めない。全文を公開し終えたら、止めるものが残っていない
+      if (isFullyRevealed(state)) return reject(RejectReason.FullyRevealed);
+
+      return accept({ ...state, paused: true });
+    }
+
+    case QuestionEventType.ResumeReveal: {
+      if (state.phase !== Phase.Revealing) return reject(RejectReason.InvalidPhase);
+      if (!state.paused) return reject(RejectReason.NotPaused);
+
+      return accept({ ...state, paused: false });
     }
 
     case QuestionEventType.Buzz: {
@@ -235,9 +270,13 @@ export const transition = (
       if (state.phase !== Phase.Revealing) return reject(RejectReason.InvalidPhase);
       if (state.lockedOut.includes(event.playerId)) return reject(RejectReason.LockedOut);
 
+      // 停止中も押せる。停止の印は公開中にしか無いので、押した後の状態には持ち込まない
       return accept({
-        ...state,
         phase: Phase.Buzzed,
+        questionIndex: state.questionIndex,
+        text: state.text,
+        revealedCount: state.revealedCount,
+        lockedOut: state.lockedOut,
         buzzer: event.playerId,
         answerDeadline: addMs(context.now, context.rules.answerTimeLimitMs),
       });

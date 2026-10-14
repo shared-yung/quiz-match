@@ -17,6 +17,7 @@ const revealing = (over: Partial<RevealingState> = {}): RevealingState => ({
   text: 'クイズ',
   revealedCount: 0,
   lockedOut: [],
+  paused: false,
   ...over,
 });
 
@@ -105,6 +106,13 @@ describe('出題の状態', () => {
       };
 
       expect(questionStateSchema.safeParse(judging).success).toBe(true);
+    });
+
+    it('公開中の状態は停止中かどうかを持つ', () => {
+      const withoutPaused = { ...revealing(), paused: undefined };
+
+      expect(questionStateSchema.safeParse(revealing({ paused: true })).success).toBe(true);
+      expect(questionStateSchema.safeParse(withoutPaused).success).toBe(false);
     });
 
     it('未知の終了理由を弾く', () => {
