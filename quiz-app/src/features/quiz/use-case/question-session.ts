@@ -91,6 +91,8 @@ export type QuestionSession = {
   judge: (correct: boolean, choice?: WrongAnswerChoice) => void;
   /** 次の問題へ。**ゲームが終わっていれば何もしない** */
   nextQuestion: () => void;
+  /** タイマーを止め、以後の操作を受け付けない。対戦を閉じるときに呼ぶ */
+  dispose: () => void;
 };
 
 /** 状態が待っているもの。`delayMs` 後に `fire` を呼ぶ */
@@ -161,10 +163,16 @@ export const createQuestionSession = ({
   /** 勝利条件を満たしたか。満たしたら次の問題へは進まない */
   let finished = false;
 
+  /** 破棄したか。破棄した後はどのイベントも受け付けない */
+  let disposed = false;
+
   /** いま張っているタイマーを取り消す関数。待つものが無い状態では持たない */
   let cancelTimer: (() => void) | undefined;
 
   const dispatch = (event: QuestionEvent): TransitionResult => {
+    // 破棄した後は、どの状態でも意味を持たないイベントとして扱う。却下の通知も出さない
+    if (disposed) return { accepted: false, reason: RejectReason.InvalidPhase };
+
     const result = transition(current, event, { rules, players: players(), now: timer.now() });
 
     if (result.accepted) {
@@ -345,5 +353,10 @@ export const createQuestionSession = ({
     submitAnswer,
     judge,
     nextQuestion,
+    dispose: () => {
+      disposed = true;
+      cancelTimer?.();
+      cancelTimer = undefined;
+    },
   };
 };

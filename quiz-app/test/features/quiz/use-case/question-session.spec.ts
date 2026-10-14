@@ -240,6 +240,20 @@ describe('出題の進行', () => {
   });
 });
 
+describe('後始末', () => {
+  it('破棄したらタイマーを止め、以後の操作に反応しない', () => {
+    const { session, timer, chars, states } = setup(revealing());
+
+    session.dispose();
+    timer.advance(intervals(10));
+    session.buzz(alice);
+
+    expect(timer.pending()).toBe(0);
+    expect(chars).toEqual([]);
+    expect(states).toEqual([]);
+  });
+});
+
 describe('一時停止', () => {
   it('止めたら停止を知らせ、文字を送らない', () => {
     const { session, timer, chars, callCount } = setup(ready());
