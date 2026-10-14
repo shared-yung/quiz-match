@@ -8,7 +8,9 @@ const { t } = useAppI18n();
   <q-page class="flex flex-center">
     <div class="column items-center q-gutter-md">
       <div class="text-h5">{{ t('app.title') }}</div>
-      <div class="text-body2 text-grey-7">{{ t('app.underConstruction') }}</div>
+      <div class="text-body2 text-grey-7">{{ t('index.description') }}</div>
+      <q-btn color="primary" to="/host" :label="t('index.host')" />
+      <q-btn outline color="primary" to="/join" :label="t('index.join')" />
     </div>
   </q-page>
 </template>

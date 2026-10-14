@@ -32,6 +32,7 @@
     "@quasar/quasar-app-extension-testing-unit-vitest": "^3.0.0",
     "@quiz-match/eslint-config": "workspace:*",
     "@types/node": "^22.19.11",
+    "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/coverage-v8": "^4.1.11",
     "@vue/test-utils": "^2.5.0",
     "autoprefixer": "^10.4.27",

@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import vuePlugin from '@vitejs/plugin-vue';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import { quasarViteTestingConfig } from '@quasar/quasar-app-extension-testing-unit-vitest/config';
 
@@ -6,7 +7,10 @@ import { quasarViteTestingConfig } from '@quasar/quasar-app-extension-testing-un
  * テストは src の隣の test/ に置き、src の木をミラーする（docs/tooling/testing.md）。
  *
  * project は2つ。
- * - unit: domain / use-case / infrastructure。node 環境で Quasar を通さないため高速
+ * - unit: domain / use-case / infrastructure。node 環境で Quasar を通さないため高速。
+ *   ただし `.vue` は読めるようにする。他 feature の入口は画面の部品も再 export するので、
+ *   use-case が入口から値を import すると `.vue` まで辿る（マウントはしないので Quasar は
+ *   要らない）。理由は quiz-app/docs/adr/0005-match-feature.md
  * - component: presentation。Quasar の Vite 設定をそのまま使い、DOM 環境で動かす
  *
  * カバレッジは src のみを対象にする。テストが src の外にあるので、除外指定に
@@ -23,6 +27,7 @@ export default defineConfig({
         // unit は Quasar の Vite 設定を継承しないので、エイリアスを自前で用意する。
         // これが無いと test/ からの `@/...` が解決できない。
         resolve: { alias: { '@': srcAlias } },
+        plugins: [vuePlugin()],
         test: {
           name: 'unit',
           environment: 'node',

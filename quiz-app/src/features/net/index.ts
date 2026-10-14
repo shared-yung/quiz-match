@@ -5,4 +5,27 @@
  * （docs/architecture/module-entry.md）。
  */
 export { installNet } from './install';
-export { HostNetDebugPanel, PlayerNetDebugPanel } from '@/features/net/presentation';
+export {
+  ConnectionState,
+  type HostMessenger,
+  type HostNetwork,
+  type Networking,
+  type PeerId,
+  peerIdSchema,
+  type PeerInvitation,
+  type PlayerMessenger,
+  type PlayerNetwork,
+  type Signaling,
+} from '@/features/net/domain';
+export {
+  type AdmitOutcome,
+  AdmitRejection,
+  createHostLobby,
+  createPeerRegistry,
+  createPlayerLobby,
+  type HostLobby,
+  type PlayerLobby,
+  type PlayerLobbyState,
+  PlayerLobbyStatus,
+} from '@/features/net/use-case';
+export { HostNetDebugPanel, PlayerNetDebugPanel, useNetworking } from '@/features/net/presentation';

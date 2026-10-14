@@ -51,7 +51,7 @@
 | `createHostLobby`   | `join` / `rejoin` を受けて `PeerRegistry` で接続とプレイヤーを結び、本人に返事と途中経過を送る。プレイヤー単位の接続状態（`presence`）を持つ |
 | `createPlayerLobby` | ホストとつながるたびに名乗る（初回は `join`、受け付けられた後は `rejoin`）。参加の状態（参加待ち / 参加済み / 断られた / 切断）を持つ        |
 
-ホストのロビーは room を直接知らない。参加の可否（`admit`）、まだ居るか（`isMember`）、途中経過（`catchUp`）を関数で受け取る。合成ルートが room の `RoomSession` と `catchUpMessages` をつなぐ。
+ホストのロビーは room を直接知らない。参加の可否（`admit`）、まだ居るか（`isMember`）、途中経過（`catchUp`）を関数で受け取る。room の `RoomSession` と `catchUpMessages` をつなぐのは match の `createHostMatch`（[match feature の構成](match.md)）。
 
 **再接続の手順。** ホストはもう一度 `invite()` して新しい `PeerId` の接続を作る。プレイヤーは `PlayerNetwork.connect()` で前の `RTCPeerConnection` を閉じて新しく用意し、届いた DataChannel を同じ `hostPeerId` に `attach` する。`Transport` と `messenger` は差し替わらないので、購読者はそのまま使える。つながったら `PlayerLobby` が `rejoin` を送り、ホストのロビーが新しい `PeerId` を同じプレイヤーに結び直す。
 

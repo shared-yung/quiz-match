@@ -4,7 +4,7 @@ import { z } from 'zod';
  * プロトコルで共有する値のスキーマ。
  *
  * ここにあるのは**回線上の表現**であって、ドメインの型ではない。ドメイン型
- * （`features/room/domain` の `Player` や `RuleSet`）へは net の infrastructure
+ * （`features/room/domain` の `Player` や `RuleSet`）へは match の infrastructure
  * で変換する。理由は docs/adr/0002-protocol-types.md を参照。
  *
  * 受け取る値は**改造されたクライアントから来うる**前提で、長さも範囲もすべて
@@ -40,7 +40,7 @@ export const displayNameSchema = z.string().trim().min(1).max(20);
  * 使わない（docs/spec/p2p-protocol.md）。
  *
  * ドメインの `EpochMs`（`src/shared/time.ts`）とは別物。検証を通っただけの数値で、
- * 変換は net の infrastructure が行う（docs/adr/0002-protocol-types.md）。
+ * 変換は match の infrastructure が行う（docs/adr/0005-match-feature.md）。
  */
 export const timestampSchema = z.number().int().nonnegative();
 
@@ -126,10 +126,10 @@ export type WinConditionType = (typeof WinConditionType)[keyof typeof WinConditi
  * クライアントなので、そのまま弾く。
  *
  * 項目を増やすときはドメイン側（`features/room/domain/rule-set.ts`）と両方を
- * 更新する。食い違いは net の infrastructure の変換で型エラーとして出る。
+ * 更新する。食い違いは match の infrastructure の変換で型エラーとして出る。
  *
  * 時間の項目は、ドメインでは `DurationMs`（`src/shared/time.ts` のブランド型）。
- * ここは素の数値で、変換は net の infrastructure が行う（ADR 0002）。
+ * ここは素の数値で、変換は match の infrastructure が行う（ADR 0005）。
  */
 export const ruleSetPayloadSchema = z.object({
   onWrongAnswer: onWrongAnswerSchema,

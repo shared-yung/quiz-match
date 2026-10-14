@@ -14,7 +14,7 @@ import { z } from 'zod';
  * プレイヤーの識別子。
  *
  * 回線上の識別子（`shared/protocol` の `playerRefSchema`）とは別物。あちらは検証を
- * 通っただけの文字列で、こちらへの変換は net の infrastructure が行う
+ * 通っただけの文字列で、こちらへの変換は match の infrastructure が行う
  * （quiz-app/docs/adr/0002-protocol-types.md）。
  */
 export const playerIdSchema = z.string().min(1).brand<'PlayerId'>();
