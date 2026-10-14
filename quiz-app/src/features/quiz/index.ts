@@ -4,3 +4,17 @@
  * 名前を明示した再 export だけを書く。組み立て（DI）は同じ階層の install.ts に置く
  * （docs/architecture/module-entry.md）。
  */
+export {
+  BuzzRejection,
+  CloseReason,
+  initialQuestionState,
+  Phase,
+  type QuestionNotifier,
+  type QuestionState,
+  revealedText,
+  type Scores,
+  type Scoring,
+  scoreOf,
+  type Timer,
+} from '@/features/quiz/domain';
+export { createQuestionSession, type QuestionSession } from '@/features/quiz/use-case';
