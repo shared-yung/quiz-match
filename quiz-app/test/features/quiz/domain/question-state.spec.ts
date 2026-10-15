@@ -8,6 +8,7 @@ import {
   questionStateSchema,
   revealedText,
   type RevealingState,
+  unrevealedText,
 } from '@/features/quiz/domain/question-state';
 import { playerIdSchema } from '@/shared/identity';
 
@@ -65,6 +66,20 @@ describe('出題の状態', () => {
 
     it('サロゲートペアを途中で割らない', () => {
       expect(revealedText(revealing({ text: '🍣🍺', revealedCount: 1 }))).toBe('🍣');
+    });
+  });
+
+  describe('まだ公開していない部分', () => {
+    it('公開済みの続きを返す', () => {
+      expect(unrevealedText(revealing({ revealedCount: 1 }))).toBe('イズ');
+    });
+
+    it('全文公開後は空', () => {
+      expect(unrevealedText(revealing({ revealedCount: 3 }))).toBe('');
+    });
+
+    it('サロゲートペアを途中で割らない', () => {
+      expect(unrevealedText(revealing({ text: '🍣🍺', revealedCount: 1 }))).toBe('🍺');
     });
   });
 

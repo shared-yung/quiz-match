@@ -154,6 +154,10 @@ export const characterAt = (text: string, position: number): string => {
 export const revealedText = (state: RevealingState | BuzzedState | JudgingState): string =>
   characters(state.text).slice(0, state.revealedCount).join('');
 
+/** まだ公開していない部分。プレイヤーには見えず、ホストの画面にだけ出す。 */
+export const unrevealedText = (state: RevealingState | BuzzedState | JudgingState): string =>
+  characters(state.text).slice(state.revealedCount).join('');
+
 /** 全文が公開され終わったか。猶予時間に入れるのはこの後だけ。 */
 export const isFullyRevealed = (state: RevealingState | BuzzedState | JudgingState): boolean =>
   state.revealedCount >= characterCount(state.text);
