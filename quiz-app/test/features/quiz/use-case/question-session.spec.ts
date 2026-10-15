@@ -252,6 +252,16 @@ describe('後始末', () => {
     expect(chars).toEqual([]);
     expect(states).toEqual([]);
   });
+
+  it('2回破棄しても害は無い', () => {
+    const { session, timer } = setup(revealing());
+
+    session.dispose();
+    session.dispose();
+    timer.advance(intervals(10));
+
+    expect(timer.pending()).toBe(0);
+  });
 });
 
 describe('一時停止', () => {
