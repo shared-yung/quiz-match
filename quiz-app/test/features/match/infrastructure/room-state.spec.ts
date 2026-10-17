@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ruleSetSchema, type Room } from '@/features/room';
-import { toRoomStateMessage, toRoomView } from '@/features/match/infrastructure/room-state';
+import {
+  toGameProgress,
+  toRoomStateMessage,
+  toRoomView,
+} from '@/features/match/infrastructure/room-state';
+import { Phase as QuizPhase } from '@/features/quiz';
 import { playerIdSchema } from '@/shared/identity';
 import { HostMessageType, OnWrongAnswer, Phase, WinConditionType } from '@/shared/protocol';
 
@@ -70,5 +75,19 @@ describe('toRoomView', () => {
       ],
       ruleSet,
     });
+  });
+});
+
+describe('toGameProgress', () => {
+  it('出題の状態を回線の phase にし、記録に点数を掛けた得点を引けるようにする', () => {
+    const progress = toGameProgress(
+      { phase: QuizPhase.Ready, questionIndex: 0, text: 'クイズ' },
+      new Map([[player('p1'), { correctAnswers: 2, wrongAnswers: 1 }]]),
+      { correct: 2, wrong: -1 },
+    );
+
+    expect(progress.phase).toBe(Phase.Ready);
+    expect(progress.pointsOf(player('p1'))).toBe(3);
+    expect(progress.pointsOf(player('p2'))).toBe(0);
   });
 });

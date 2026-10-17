@@ -51,11 +51,20 @@ const revealing = (over: Partial<RevealingState> = {}): RevealingState => ({
   text: 'クイズ',
   revealedCount: 1,
   lockedOut: [],
+  paused: false,
   ...over,
 });
 
+/** 公開が始まった後の共通部分。停止の印は公開中にしか無いので含めない */
+const inPlay = {
+  questionIndex: 0,
+  text: 'クイズ',
+  revealedCount: 1,
+  lockedOut: [],
+};
+
 const buzzed = (over: Partial<BuzzedState> = {}): BuzzedState => ({
-  ...revealing(),
+  ...inPlay,
   phase: Phase.Buzzed,
   buzzer: alice,
   answerDeadline: deadline,
@@ -63,7 +72,7 @@ const buzzed = (over: Partial<BuzzedState> = {}): BuzzedState => ({
 });
 
 const judging = (over: Partial<JudgingState> = {}): JudgingState => ({
-  ...revealing(),
+  ...inPlay,
   phase: Phase.Judging,
   answerer: alice,
   answer: '答え',
@@ -228,6 +237,128 @@ describe('出題の進行', () => {
     expect(revealStarts).toEqual([]);
     expect(states).toEqual([]);
     expect(timer.pending()).toBe(pendingBefore);
+  });
+});
+
+describe('後始末', () => {
+  it('破棄したらタイマーを止め、以後の操作に反応しない', () => {
+    const { session, timer, chars, states } = setup(revealing());
+
+    session.dispose();
+    timer.advance(intervals(10));
+    session.buzz(alice);
+
+    expect(timer.pending()).toBe(0);
+    expect(chars).toEqual([]);
+    expect(states).toEqual([]);
+  });
+
+  it('2回破棄しても害は無い', () => {
+    const { session, timer } = setup(revealing());
+
+    session.dispose();
+    session.dispose();
+    timer.advance(intervals(10));
+
+    expect(timer.pending()).toBe(0);
+  });
+});
+
+describe('一時停止', () => {
+  it('止めたら停止を知らせ、文字を送らない', () => {
+    const { session, timer, chars, callCount } = setup(ready());
+    session.startReveal();
+    timer.advance(revealIntervalMs);
+
+    session.pauseReveal();
+
+    expect(session.state()).toMatchObject({ phase: Phase.Revealing, paused: true });
+    expect(callCount('revealPaused')).toBe(1);
+    expect(timer.pending()).toBe(0);
+
+    timer.advance(intervals(10));
+    expect(chars).toHaveLength(1);
+  });
+
+  it('再開すると、続きの文字を1間隔後に送る', () => {
+    const { session, timer, chars } = setup(revealing({ revealedCount: 1, paused: true }));
+
+    session.resumeReveal();
+    timer.advance(durationMsSchema.parse(revealIntervalMs - 1));
+    expect(chars).toEqual([]);
+
+    timer.advance(durationMsSchema.parse(1));
+    expect(chars).toEqual([{ position: 1, char: 'イ' }]);
+  });
+
+  it('停止中の状態から始めると、文字を送らずに待つ', () => {
+    const { timer } = setup(revealing({ paused: true }));
+
+    expect(timer.pending()).toBe(0);
+  });
+
+  it('停止中も早押しを受理する', () => {
+    const { session, accepted } = setup(revealing({ paused: true }));
+
+    session.buzz(alice);
+
+    expect(session.state()).toMatchObject({ phase: Phase.Buzzed, buzzer: alice });
+    expect(accepted).toEqual([{ playerId: alice, answerDeadline: deadline }]);
+  });
+
+  it('全文公開後は止められず、猶予はそのまま進む', () => {
+    const { session, timer, callCount } = setup(revealing({ revealedCount: 3 }));
+
+    session.pauseReveal();
+    timer.advance(postRevealGraceMs);
+
+    expect(callCount('revealPaused')).toBe(0);
+    expect(session.state()).toMatchObject({ phase: Phase.Closed, reason: CloseReason.TimeUp });
+  });
+
+  it('止まっていないときの再開は何もしない', () => {
+    const { session, states } = setup(revealing());
+
+    session.resumeReveal();
+
+    expect(states).toEqual([]);
+  });
+});
+
+describe('問題の終了', () => {
+  it('正解で終わったら、判定と得点の後に正解文と理由を知らせる', () => {
+    const { session, callsExcept, closings } = setup(judging());
+
+    session.judge(true);
+
+    expect(closings).toEqual([{ answerText: 'クイズ', reason: CloseReason.Correct }]);
+    expect(callsExcept('stateChanged')).toEqual(['judged', 'scoresChanged', 'questionClosed']);
+  });
+
+  it('猶予切れで終わったときも知らせる', () => {
+    const { timer, closings } = setup(revealing({ revealedCount: 3 }));
+
+    timer.advance(postRevealGraceMs);
+
+    expect(closings).toEqual([{ answerText: 'クイズ', reason: CloseReason.TimeUp }]);
+  });
+
+  it('誤答（続行）では問題が続くので知らせない', () => {
+    const { session, closings } = setup(judging());
+
+    session.judge(false);
+
+    expect(closings).toEqual([]);
+  });
+
+  it('ゲームが終わるときは、問題の終了を先に知らせる', () => {
+    const { session, calls } = setup(judging(), {
+      winCondition: { type: WinConditionType.FirstTo, points: 1 },
+    });
+
+    session.judge(true);
+
+    expect(calls.slice(-2)).toEqual(['questionClosed', 'gameEnded']);
   });
 });
 

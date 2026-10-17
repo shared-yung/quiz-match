@@ -2,6 +2,7 @@
 import { onUnmounted, ref } from 'vue';
 import { copyToClipboard } from 'quasar';
 import { ConnectionState, type PeerId } from '@/features/net';
+import { HostQuestionControl } from '@/features/quiz';
 import { RuleSetForm, RuleSetSummary } from '@/features/room';
 import { type MessageKey, useAppI18n } from '@/shared/i18n';
 import { useHostMatchStore } from './stores/host-match-store';
@@ -46,6 +47,16 @@ onUnmounted(() => store.close());
           <RuleSetSummary :rule-set="store.room.ruleSet" />
         </q-card-section>
       </q-card>
+
+      <HostQuestionControl
+        v-if="store.question != undefined"
+        :state="store.question"
+        @set-question="store.setQuestion"
+        @start-reveal="store.startReveal"
+        @pause-reveal="store.pauseReveal"
+        @resume-reveal="store.resumeReveal"
+        @next-question="store.nextQuestion"
+      />
 
       <q-card flat bordered>
         <q-card-section>

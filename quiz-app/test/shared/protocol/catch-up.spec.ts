@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { catchUpMessages } from '@/shared/protocol/catch-up';
 import { OnWrongAnswer, Phase, WinConditionType } from '@/shared/protocol/common';
-import { HostMessageType, type RoomStateMessage } from '@/shared/protocol/host-message';
+import {
+  HostMessageType,
+  RevealStopReason,
+  type RoomStateMessage,
+} from '@/shared/protocol/host-message';
 
 const roomState = (phase: RoomStateMessage['phase']): RoomStateMessage => ({
   type: HostMessageType.RoomState,
@@ -29,7 +33,9 @@ describe('catchUpMessages', () => {
   it('出題中なら、問題の開始と公開済みの文字を位置の順に続けて送る', () => {
     const state = roomState(Phase.Revealing);
 
-    expect(catchUpMessages(state, { questionIndex: 2, revealedText: 'クイ' })).toEqual([
+    expect(
+      catchUpMessages(state, { questionIndex: 2, revealedText: 'クイ', paused: false }),
+    ).toEqual([
       state,
       { type: HostMessageType.QuestionStart, questionIndex: 2 },
       { type: HostMessageType.QuestionChar, position: 0, char: 'ク' },
@@ -37,10 +43,24 @@ describe('catchUpMessages', () => {
     ]);
   });
 
+  it('一時停止中なら、公開済みの文字の後に手動の停止を送る', () => {
+    const messages = catchUpMessages(roomState(Phase.Revealing), {
+      questionIndex: 0,
+      revealedText: 'ク',
+      paused: true,
+    });
+
+    expect(messages.slice(2)).toEqual([
+      { type: HostMessageType.QuestionChar, position: 0, char: 'ク' },
+      { type: HostMessageType.QuestionRevealStop, reason: RevealStopReason.Manual },
+    ]);
+  });
+
   it('サロゲートペアの文字は1文字として送る', () => {
     const messages = catchUpMessages(roomState(Phase.Buzzed), {
       questionIndex: 0,
       revealedText: '𠮷野',
+      paused: false,
     });
 
     expect(messages.slice(2)).toEqual([

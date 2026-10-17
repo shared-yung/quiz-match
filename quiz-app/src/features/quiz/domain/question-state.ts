@@ -73,13 +73,17 @@ export const questionStateSchema = z.discriminatedUnion('phase', [
     text: questionTextSchema,
   }),
 
-  /** 1文字ずつ公開中 */
+  /**
+   * 1文字ずつ公開中。`paused` ならホストが一時停止していて、文字を送らない。
+   * 停止中も早押しは受け付ける（docs/adr/0006-manual-reveal-pause.md）
+   */
   z.object({
     phase: z.literal(Phase.Revealing),
     questionIndex: questionIndexSchema,
     text: questionTextSchema,
     revealedCount: revealedCountSchema,
     lockedOut: lockedOutSchema,
+    paused: z.boolean(),
   }),
 
   /** 押した人の回答待ち。締め切りは**ホストの時計での絶対時刻** */
@@ -149,6 +153,10 @@ export const characterAt = (text: string, position: number): string => {
 /** ここまでに公開された部分。プレイヤーに見えているのはこれだけ。 */
 export const revealedText = (state: RevealingState | BuzzedState | JudgingState): string =>
   characters(state.text).slice(0, state.revealedCount).join('');
+
+/** まだ公開していない部分。プレイヤーには見えず、ホストの画面にだけ出す。 */
+export const unrevealedText = (state: RevealingState | BuzzedState | JudgingState): string =>
+  characters(state.text).slice(state.revealedCount).join('');
 
 /** 全文が公開され終わったか。猶予時間に入れるのはこの後だけ。 */
 export const isFullyRevealed = (state: RevealingState | BuzzedState | JudgingState): boolean =>

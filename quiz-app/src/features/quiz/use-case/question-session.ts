@@ -32,7 +32,7 @@ import {
  *
  * **タイマーは状態に従う。** 1つの状態で待つものは高々1つ（公開間隔・猶予・回答の
  * 制限時間）なので、遷移を受理するたびに前のタイマーを取り消し、新しい状態から
- * 張り直す。早押しで公開が止まるのも、誤答（continue）の後に続きから再開するのも
+ * 張り直す。早押しや一時停止で公開が止まるのも、誤答（continue）の後に続きから再開するのも
  * これで決まる（docs/spec/game-rules.md）。
  *
  * **得点の記録もここが持つ。** 問題をまたいで残る状態で、判定のたびに更新し、
@@ -79,6 +79,10 @@ export type QuestionSession = {
   setQuestion: (text: string) => void;
   /** ホストが公開を始める。以降は `revealIntervalMs` ごとに1文字ずつ公開する */
   startReveal: () => void;
+  /** ホストが公開を一時停止する。全文公開後（猶予中）は止められない */
+  pauseReveal: () => void;
+  /** ホストが一時停止した公開を再開する。続きの文字を1間隔後に送る */
+  resumeReveal: () => void;
   /** プレイヤーの早押し。却下したら理由を本人に知らせる（知らせないものもある） */
   buzz: (playerId: PlayerId) => void;
   /** 押した人からの回答。受け付けられないものは黙って捨てる */
@@ -87,6 +91,8 @@ export type QuestionSession = {
   judge: (correct: boolean, choice?: WrongAnswerChoice) => void;
   /** 次の問題へ。**ゲームが終わっていれば何もしない** */
   nextQuestion: () => void;
+  /** タイマーを止め、以後の操作を受け付けない。対戦を閉じるときに呼ぶ */
+  dispose: () => void;
 };
 
 /** 状態が待っているもの。`delayMs` 後に `fire` を呼ぶ */
@@ -160,7 +166,22 @@ export const createQuestionSession = ({
   /** いま張っているタイマーを取り消す関数。待つものが無い状態では持たない */
   let cancelTimer: (() => void) | undefined;
 
+  /**
+   * セッションの寿命。**破棄は一方向で、破棄していない状態へは戻らない。**
+   *
+   * 書き換えられる boolean では持たない。`AbortSignal.aborted` は読み取り専用で、
+   * `abort()` は何度呼んでも害が無い。破棄したときに止めるものは `abort` に登録する。
+   */
+  const lifetime = new AbortController();
+  lifetime.signal.addEventListener('abort', () => {
+    cancelTimer?.();
+    cancelTimer = undefined;
+  });
+
   const dispatch = (event: QuestionEvent): TransitionResult => {
+    // 破棄した後は、どの状態でも意味を持たないイベントとして扱う。却下の通知も出さない
+    if (lifetime.signal.aborted) return { accepted: false, reason: RejectReason.InvalidPhase };
+
     const result = transition(current, event, { rules, players: players(), now: timer.now() });
 
     if (result.accepted) {
@@ -173,11 +194,13 @@ export const createQuestionSession = ({
   };
 
   /**
-   * 問題が終わったところで勝敗を見る。**加点を終えてから呼ぶこと。**
+   * 問題が終わったら知らせ、勝敗を見る。**加点を終えてから呼ぶこと。**
    * 先に呼ぶと、決勝点が入る前の記録で判定してしまう。
    */
-  const endGameIfWon = (state: QuestionState): void => {
+  const finishIfClosed = (state: QuestionState): void => {
     if (state.phase !== Phase.Closed) return;
+
+    notifier.questionClosed(state.text, state.reason);
 
     const result = judgeGame(currentScores, rules, { questionsExhausted: questionsExhausted() });
     if (!result.finished) return;
@@ -206,13 +229,16 @@ export const createQuestionSession = ({
   const graceExpired = (): void => {
     const result = dispatch({ type: QuestionEventType.GraceExpired });
 
-    if (result.accepted) endGameIfWon(result.state);
+    if (result.accepted) finishIfClosed(result.state);
   };
 
   /** その状態で待つもの。人の操作を待つ状態では `undefined` */
   const waitingFor = (state: QuestionState): Waiting | undefined => {
     switch (state.phase) {
       case Phase.Revealing:
+        // 一時停止中は何も待たない。再開の遷移でタイマーを張り直す
+        if (state.paused) return undefined;
+
         // 猶予は revealing に入り直すたびに最初から数える。誤答（continue）で
         // 再開したときも、残ったプレイヤーにまるごと与える
         return isFullyRevealed(state)
@@ -255,6 +281,18 @@ export const createQuestionSession = ({
 
     // 1文字目は revealIntervalMs 後。遷移で張ったタイマーが送る
     if (result.accepted) notifier.revealStarted(result.state.questionIndex);
+  };
+
+  const pauseReveal = (): void => {
+    const result = dispatch({ type: QuestionEventType.PauseReveal });
+
+    // 公開のタイマーは遷移で取り消されている。ここで文字の送信が止まる
+    if (result.accepted) notifier.revealPaused();
+  };
+
+  const resumeReveal = (): void => {
+    // 再開は知らせない。遷移で張ったタイマーが続きの文字を送り、それで分かる
+    dispatch({ type: QuestionEventType.ResumeReveal });
   };
 
   const buzz = (playerId: PlayerId): void => {
@@ -300,7 +338,7 @@ export const createQuestionSession = ({
     notifier.scoresChanged(currentScores);
 
     // 加点の後に見る。誤答（continue）なら問題は続くので、ここでは終わらない
-    endGameIfWon(result.state);
+    finishIfClosed(result.state);
   };
 
   const nextQuestion = (): void => {
@@ -318,9 +356,12 @@ export const createQuestionSession = ({
     scores: () => currentScores,
     setQuestion,
     startReveal,
+    pauseReveal,
+    resumeReveal,
     buzz,
     submitAnswer,
     judge,
     nextQuestion,
+    dispose: () => lifetime.abort(),
   };
 };

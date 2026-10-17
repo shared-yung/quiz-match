@@ -16,6 +16,7 @@ export {
   type ReadyState,
   revealedText,
   type RevealingState,
+  unrevealedText,
 } from './question-state';
 export {
   type AnswerCounts,

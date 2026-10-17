@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, shallowRef } from 'vue';
 import type { HostMatch } from '@/features/match/use-case';
 import { ConnectionState, type PeerId, type Signaling, useNetworking } from '@/features/net';
+import type { QuestionState } from '@/features/quiz';
 import type { PlayerId, Room, RuleSet } from '@/features/room';
 import { useMatchmaking } from '@/features/match/presentation/composables/use-matchmaking';
 
@@ -33,6 +34,8 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
   const unsubscribes: (() => void)[] = [];
 
   const room = shallowRef<Room | undefined>();
+  /** 出題の状態。ルームを作るまでは `undefined` */
+  const question = shallowRef<QuestionState | undefined>();
   const presences = ref(new Map<PlayerId, ConnectionState>());
   const invitations = ref<Invitation[]>([]);
 
@@ -43,9 +46,13 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
     const opened = matchmaking.host({ ruleSet, network: networking.openHost() });
     match = opened;
     room.value = opened.room();
+    question.value = opened.question();
     unsubscribes.push(
       opened.onRoomChanged((next) => {
         room.value = next;
+      }),
+      opened.onQuestionChanged((next) => {
+        question.value = next;
       }),
       opened.onPresenceChanged((playerId, state) => {
         presences.value.set(playerId, state);
@@ -94,6 +101,12 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
     }
   };
 
+  const setQuestion = (text: string): void => match?.setQuestion(text);
+  const startReveal = (): void => match?.startReveal();
+  const pauseReveal = (): void => match?.pauseReveal();
+  const resumeReveal = (): void => match?.resumeReveal();
+  const nextQuestion = (): void => match?.nextQuestion();
+
   /** 画面を離れるときに呼ぶ。接続をすべて閉じ、最初の状態に戻す */
   const close = (): void => {
     unsubscribes.splice(0).forEach((unsubscribe) => unsubscribe());
@@ -101,9 +114,24 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
     match = undefined;
     signalings.clear();
     room.value = undefined;
+    question.value = undefined;
     presences.value = new Map();
     invitations.value = [];
   };
 
-  return { room, invitations, open, presenceOf, invite, acceptAnswer, close };
+  return {
+    room,
+    question,
+    invitations,
+    open,
+    presenceOf,
+    invite,
+    acceptAnswer,
+    setQuestion,
+    startReveal,
+    pauseReveal,
+    resumeReveal,
+    nextQuestion,
+    close,
+  };
 });

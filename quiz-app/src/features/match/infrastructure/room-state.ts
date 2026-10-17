@@ -6,6 +6,8 @@ import {
   type RuleSetPayload,
 } from '@/shared/protocol';
 import type { RoomView } from '@/features/match/use-case';
+import { type QuestionState, type Scores, type Scoring, scoreOf } from '@/features/quiz';
+import { toWirePhase } from './question-messages';
 
 /**
  * ドメインの型と回線の型（`room/state`）の変換。
@@ -21,6 +23,16 @@ export type GameProgress = {
   /** そのプレイヤーの今の得点 */
   pointsOf: (playerId: PlayerId) => number;
 };
+
+/** quiz の状態と得点の記録から、`room/state` に載せる進み具合を作る。 */
+export const toGameProgress = (
+  question: QuestionState,
+  scores: Scores,
+  scoring: Scoring,
+): GameProgress => ({
+  phase: toWirePhase(question.phase),
+  pointsOf: (playerId) => scoreOf(scores, playerId, scoring),
+});
 
 /**
  * 項目を1つずつ書き写す。スプレッドで丸ごと渡すと、片方にだけ項目が増えたときに
