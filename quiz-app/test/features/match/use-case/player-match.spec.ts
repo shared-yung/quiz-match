@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPlayerMatch, type PlayerMatchDeps } from '@/features/match/use-case/player-match';
 import { ConnectionState, PlayerLobbyStatus } from '@/features/net';
 import {
+  AnswerState,
   BuzzRejection,
   initialPlayerQuestion,
   Phase as QuizPhase,
@@ -24,6 +25,7 @@ import {
   WinConditionType,
 } from '@/shared/protocol';
 import { createFakePlayerNetwork } from './player-network.fake';
+import { createFakeTimersTimer } from './question-wire.fake';
 
 /** 届く room/state。中身は toRoomView に渡るだけなので、固定でよい */
 const roomState: RoomStateMessage = {
@@ -91,6 +93,7 @@ const setup = (overrides: Partial<PlayerMatchDeps> = {}) => {
     name: 'たろう',
     toRoomView: () => undefined,
     toPlayerQuestionEvent: fakePlayerQuestionEvent,
+    timer: createFakeTimersTimer(),
     ...overrides,
   });
 
@@ -105,6 +108,7 @@ describe('PlayerMatch', () => {
       lobby: { status: PlayerLobbyStatus.Waiting },
       room: undefined,
       question: initialPlayerQuestion(),
+      answerRemainingMs: undefined,
     });
   });
 
@@ -266,5 +270,88 @@ describe('PlayerMatch の出題', () => {
     });
 
     expect(match.state().question).toMatchObject({ lockedOut: true });
+  });
+});
+
+describe('PlayerMatch の回答', () => {
+  /** 回答の制限時間（view の ruleSet の既定値） */
+  const limit = view.ruleSet.answerTimeLimitMs;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** 参加して出題を受け、`buzzer` の押下が採用されたところまで進める */
+  const buzzedBy = (buzzer: string) => {
+    const { match, network } = setup({ toRoomView: () => view });
+    network.setConnectionState(ConnectionState.Connected);
+    network.receive({ type: HostMessageType.JoinAccepted, playerId: 'p1', rejoinToken: 't1' });
+    network.receive(roomState);
+    network.receive({ type: HostMessageType.QuestionStart, questionIndex: 0 });
+    network.receive({ type: HostMessageType.BuzzAccepted, playerId: buzzer, answerDeadline: 1 });
+    network.sent.splice(0);
+
+    return { match, network };
+  };
+
+  it('自分が採用されたら、ルールの制限時間から残り時間を数える', () => {
+    const { match } = buzzedBy('p1');
+    expect(match.state().answerRemainingMs).toBe(limit);
+
+    vi.advanceTimersByTime(1_000);
+
+    expect(match.state().answerRemainingMs).toBe(limit - 1_000);
+  });
+
+  it('他人が採用されたときは数えない', () => {
+    const { match } = buzzedBy('p2');
+
+    expect(match.state().answerRemainingMs).toBeUndefined();
+  });
+
+  it('制限時間が過ぎたら時間切れになり、もう送れない', () => {
+    const { match, network } = buzzedBy('p1');
+
+    vi.advanceTimersByTime(limit);
+    match.answer('こたえ');
+
+    expect(match.state().question).toMatchObject({ answerState: AnswerState.TimedOut });
+    expect(network.sent).toEqual([]);
+  });
+
+  it('時間内なら回答を送り、送信済みにして数えるのをやめる', () => {
+    const { match, network } = buzzedBy('p1');
+
+    match.answer('  こたえ  ');
+    match.answer('もう一度');
+    vi.advanceTimersByTime(limit);
+
+    expect(network.sent).toEqual([{ type: PlayerMessageType.Answer, text: 'こたえ' }]);
+    expect(match.state().question).toMatchObject({ answerState: AnswerState.Sent });
+    expect(match.state().answerRemainingMs).toBeUndefined();
+  });
+
+  it('空の回答は送らない', () => {
+    const { match, network } = buzzedBy('p1');
+
+    match.answer('   ');
+
+    expect(network.sent).toEqual([]);
+    expect(match.state().question).toMatchObject({ answerState: AnswerState.Open });
+  });
+
+  it('close したら数えるのをやめる', () => {
+    const { match } = buzzedBy('p1');
+    const changes: unknown[] = [];
+    match.onStateChanged((state) => changes.push(state));
+
+    match.close();
+    vi.advanceTimersByTime(limit);
+
+    expect(changes).toEqual([]);
   });
 });

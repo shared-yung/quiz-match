@@ -27,6 +27,18 @@ export const PlayerQuestionStatus = {
 
 export type PlayerQuestionStatus = (typeof PlayerQuestionStatus)[keyof typeof PlayerQuestionStatus];
 
+/** 採用された人の回答の進み具合。採用されたのが自分のときだけ意味を持つ。 */
+export const AnswerState = {
+  /** 回答を受け付けている */
+  Open: 'open',
+  /** 回答を送った */
+  Sent: 'sent',
+  /** 送らないまま制限時間が過ぎた。ホストは無回答（誤答）として扱う */
+  TimedOut: 'timedOut',
+} as const;
+
+export type AnswerState = (typeof AnswerState)[keyof typeof AnswerState];
+
 export type PlayerQuestion =
   | { status: typeof PlayerQuestionStatus.Waiting }
   | {
@@ -50,6 +62,7 @@ export type PlayerQuestion =
       buzzer: PlayerId;
       /** 回答の締め切り。**ホストの時計での時刻** */
       answerDeadline: EpochMs;
+      answerState: AnswerState;
     }
   | {
       status: typeof PlayerQuestionStatus.Closed;
@@ -69,6 +82,10 @@ export const PlayerQuestionEventType = {
   RevealPaused: 'revealPaused',
   /** 自分が押した（送った） */
   BuzzSent: 'buzzSent',
+  /** 自分が回答を送った */
+  AnswerSent: 'answerSent',
+  /** 自分の手元で、回答の制限時間が過ぎた */
+  AnswerTimedOut: 'answerTimedOut',
   /** 誰かの押下が採用された */
   BuzzAccepted: 'buzzAccepted',
   /** 自分の押下が却下された */
@@ -87,6 +104,8 @@ export type PlayerQuestionEvent =
   | { type: typeof PlayerQuestionEventType.CharRevealed; position: number; char: string }
   | { type: typeof PlayerQuestionEventType.RevealPaused }
   | { type: typeof PlayerQuestionEventType.BuzzSent }
+  | { type: typeof PlayerQuestionEventType.AnswerSent }
+  | { type: typeof PlayerQuestionEventType.AnswerTimedOut }
   | {
       type: typeof PlayerQuestionEventType.BuzzAccepted;
       buzzer: PlayerId;
@@ -114,6 +133,12 @@ export const initialPlayerQuestion = (): PlayerQuestion => ({
 /** 今押せるか。公開中で、ロックアウトされておらず、前の押下の結果を待っていないとき */
 export const canBuzz = (state: PlayerQuestion): boolean =>
   state.status === PlayerQuestionStatus.Revealing && !state.lockedOut && !state.buzzPending;
+
+/** 今回答できるか。自分の押下が採用され、まだ送っておらず、時間も切れていないとき */
+export const canAnswer = (state: PlayerQuestion, self: PlayerId | undefined): boolean =>
+  state.status === PlayerQuestionStatus.Buzzed &&
+  state.buzzer === self &&
+  state.answerState === AnswerState.Open;
 
 /**
  * `position` 文字目を置く。文字はコードポイントで数える（問題文の数え方と同じ）。
@@ -165,6 +190,16 @@ export const applyPlayerQuestionEvent = (
         ? { ...state, buzzPending: true }
         : state;
 
+    case PlayerQuestionEventType.AnswerSent:
+      return state.status === PlayerQuestionStatus.Buzzed && state.answerState === AnswerState.Open
+        ? { ...state, answerState: AnswerState.Sent }
+        : state;
+
+    case PlayerQuestionEventType.AnswerTimedOut:
+      return state.status === PlayerQuestionStatus.Buzzed && state.answerState === AnswerState.Open
+        ? { ...state, answerState: AnswerState.TimedOut }
+        : state;
+
     case PlayerQuestionEventType.BuzzAccepted:
       if (state.status !== PlayerQuestionStatus.Revealing) return state;
 
@@ -175,6 +210,7 @@ export const applyPlayerQuestionEvent = (
         lockedOut: state.lockedOut,
         buzzer: event.buzzer,
         answerDeadline: event.answerDeadline,
+        answerState: AnswerState.Open,
       };
 
     case PlayerQuestionEventType.BuzzRejected:

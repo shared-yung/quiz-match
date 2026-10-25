@@ -1,5 +1,7 @@
 export {
+  AnswerState,
   applyPlayerQuestionEvent,
+  canAnswer,
   canBuzz,
   initialPlayerQuestion,
   type PlayerQuestion,
