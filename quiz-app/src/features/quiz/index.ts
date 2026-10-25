@@ -5,10 +5,17 @@
  * （docs/architecture/module-entry.md）。
  */
 export {
+  applyPlayerQuestionEvent,
   BuzzRejection,
+  canBuzz,
   CloseReason,
+  initialPlayerQuestion,
   initialQuestionState,
   Phase,
+  type PlayerQuestion,
+  type PlayerQuestionEvent,
+  PlayerQuestionEventType,
+  PlayerQuestionStatus,
   type QuestionNotifier,
   type QuestionState,
   revealedText,
@@ -19,4 +26,4 @@ export {
   WrongAnswerChoice,
 } from '@/features/quiz/domain';
 export { createQuestionSession, type QuestionSession } from '@/features/quiz/use-case';
-export { HostQuestionControl } from '@/features/quiz/presentation';
+export { HostQuestionControl, PlayerQuestionView } from '@/features/quiz/presentation';
