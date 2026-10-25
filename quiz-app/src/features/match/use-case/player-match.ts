@@ -25,6 +25,7 @@ import {
   type RoomStateMessage,
 } from '@/shared/protocol';
 import type { RoomView } from './room-view';
+import type { Standings } from './standings';
 
 export type PlayerMatchDeps = {
   /** ホストとの通信。このマッチが閉じるまで専有する */
@@ -55,6 +56,8 @@ export type PlayerMatchState = {
    * ホストより長くなるが、判定はホストが自分の時計で行う（docs/spec/p2p-protocol.md）
    */
   answerRemainingMs: number | undefined;
+  /** ホストから届いた得点と勝敗 */
+  standings: Standings;
 };
 
 export type PlayerMatch = {
@@ -86,6 +89,7 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
   const handlers = new Set<(state: PlayerMatchState) => void>();
   let room: RoomView | undefined;
   let question = initialPlayerQuestion();
+  let standings: Standings = { points: [], winners: undefined };
   /** 手元の時計での回答の締め切り。自分が回答できる間だけ持つ */
   let answerDeadline: EpochMs | undefined;
   /** 次に残り時間を知らせるタイマーを取り消す関数 */
@@ -105,6 +109,7 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     room,
     question,
     answerRemainingMs: answerRemainingMs(),
+    standings,
   });
   const notify = (): void => {
     const current = state();
@@ -186,6 +191,18 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
 
       return;
     }
+    if (message.type === HostMessageType.ScoreUpdate) {
+      standings = { ...standings, points: message.scores };
+      notify();
+
+      return;
+    }
+    if (message.type === HostMessageType.GameEnd) {
+      standings = { points: message.scores, winners: message.winnerIds };
+      notify();
+
+      return;
+    }
     if (message.type !== HostMessageType.RoomState) return;
 
     // ホストの実装や版の違いで読めないものは捨て、前の様子のまま待つ
@@ -193,6 +210,8 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     if (next == undefined) return;
 
     room = next;
+    // 途中から入っても今の得点が分かるよう、room/state の得点も写す
+    standings = { ...standings, points: message.scores };
     notify();
   });
 

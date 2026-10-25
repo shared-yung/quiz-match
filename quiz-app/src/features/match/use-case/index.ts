@@ -12,3 +12,4 @@ export {
   type PlayerMatchState,
 } from './player-match';
 export { type RoomView } from './room-view';
+export { type Standings } from './standings';

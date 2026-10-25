@@ -109,6 +109,7 @@ describe('PlayerMatch', () => {
       room: undefined,
       question: initialPlayerQuestion(),
       answerRemainingMs: undefined,
+      standings: { points: [], winners: undefined },
     });
   });
 
@@ -353,5 +354,53 @@ describe('PlayerMatch の回答', () => {
     vi.advanceTimersByTime(limit);
 
     expect(changes).toEqual([]);
+  });
+});
+
+describe('PlayerMatch の順位表', () => {
+  it('room/state の得点を順位表にする', () => {
+    const { match, network } = setup({ toRoomView: () => view });
+
+    network.receive({ ...roomState, scores: [{ playerId: 'p1', points: 2 }] });
+
+    expect(match.state().standings).toEqual({
+      points: [{ playerId: 'p1', points: 2 }],
+      winners: undefined,
+    });
+  });
+
+  it('score/update で得点を更新し、変わったことを知らせる', () => {
+    const { match, network } = setup();
+    const changes: number[] = [];
+    match.onStateChanged((state) => changes.push(state.standings.points.length));
+
+    network.receive({
+      type: HostMessageType.ScoreUpdate,
+      scores: [
+        { playerId: 'p1', points: 1 },
+        { playerId: 'p2', points: 0 },
+      ],
+    });
+
+    expect(match.state().standings.points).toEqual([
+      { playerId: 'p1', points: 1 },
+      { playerId: 'p2', points: 0 },
+    ]);
+    expect(changes).toEqual([2]);
+  });
+
+  it('game/end で最終得点と勝者を持つ', () => {
+    const { match, network } = setup();
+
+    network.receive({
+      type: HostMessageType.GameEnd,
+      scores: [{ playerId: 'p1', points: 5 }],
+      winnerIds: ['p1'],
+    });
+
+    expect(match.state().standings).toEqual({
+      points: [{ playerId: 'p1', points: 5 }],
+      winners: ['p1'],
+    });
   });
 });

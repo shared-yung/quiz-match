@@ -389,6 +389,73 @@ describe('HostMatch の早押しと判定', () => {
   });
 });
 
+describe('HostMatch の順位表', () => {
+  const interval = ruleSet.revealIntervalMs;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** 2人を迎え、1人目が押して答えたところまで進める */
+  const answered = (overrides: Partial<HostMatchDeps> = {}) => {
+    const { match, network } = setup(overrides);
+    const peers = [match.invite().peerId, match.invite().peerId];
+    peers.forEach((peerId, index) =>
+      network.receive(peerId, { type: PlayerMessageType.Join, name: `p${String(index)}` }),
+    );
+    const [first, second] = match.room().players;
+    const [firstPeer] = peers;
+    if (first == undefined || second == undefined || firstPeer == undefined) {
+      throw new Error('参加していません');
+    }
+    match.setQuestion('クイズ');
+    match.startReveal();
+    vi.advanceTimersByTime(interval);
+    network.receive(firstPeer, { type: PlayerMessageType.Buzz });
+    network.receive(firstPeer, { type: PlayerMessageType.Answer, text: 'クイズ' });
+
+    return { match, first: first.id, second: second.id };
+  };
+
+  it('始めは参加者全員が 0 点で、勝者は居ない', () => {
+    const { match, first, second } = answered();
+
+    expect(match.standings()).toEqual({
+      points: [
+        { playerId: first, points: 0 },
+        { playerId: second, points: 0 },
+      ],
+      winners: undefined,
+    });
+  });
+
+  it('判定のたびに得点を更新し、変わったことを知らせる', () => {
+    const { match, first } = answered();
+    const changes: number[] = [];
+    match.onStandingsChanged((standings) => changes.push(standings.points[0]?.points ?? -1));
+
+    match.judge(true);
+
+    expect(match.standings().points[0]).toEqual({ playerId: first, points: 1 });
+    expect(changes).toContain(1);
+  });
+
+  it('勝利条件を満たしたら、勝者が入る', () => {
+    const firstToOne = ruleSetSchema.parse({
+      winCondition: { type: WinConditionType.FirstTo, points: 1 },
+    });
+    const { match, first } = answered({ ruleSet: firstToOne });
+
+    match.judge(true);
+
+    expect(match.standings().winners).toEqual([first]);
+  });
+});
+
 /** 最後に送った問題の終了 */
 const questionEnd = (messages: readonly HostMessage[]) =>
   messages.findLast((message) => message.type === HostMessageType.QuestionEnd);

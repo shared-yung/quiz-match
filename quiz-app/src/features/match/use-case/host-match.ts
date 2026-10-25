@@ -20,6 +20,7 @@ import {
   type QuestionState,
   type Scores,
   type Scoring,
+  scoreOf,
   type Timer,
   type WrongAnswerChoice,
 } from '@/features/quiz';
@@ -32,6 +33,7 @@ import {
   type RejoinToken,
   type RoomStateMessage,
 } from '@/shared/protocol';
+import type { Standings } from './standings';
 
 /** 出題のメッセージの宛先と、得点を回線の形にするのに要るもの。 */
 export type QuestionChannel = {
@@ -75,6 +77,10 @@ export type HostMatch = {
   presence: (playerId: PlayerId) => ConnectionState;
   /** 参加者の接続状態が変わるたびに呼ぶ。戻り値を呼ぶと解除する */
   onPresenceChanged: (handler: (playerId: PlayerId, state: ConnectionState) => void) => () => void;
+  /** 現在の順位表 */
+  standings: () => Standings;
+  /** 得点か勝敗、参加者が変わるたびに呼ぶ。戻り値を呼ぶと解除する */
+  onStandingsChanged: (handler: (standings: Standings) => void) => () => void;
   /** 現在の出題の状態。ホストには問題文の全文が見える */
   question: () => QuestionState;
   /** 出題の状態が変わるたびに呼ぶ。戻り値を呼ぶと解除する */
@@ -109,6 +115,9 @@ export type HostMatch = {
 export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
   const roomHandlers = new Set<(room: Room) => void>();
   const questionHandlers = new Set<(state: QuestionState) => void>();
+  const standingsHandlers = new Set<(standings: Standings) => void>();
+  /** 勝者。勝利条件を満たすまでは `undefined` */
+  let winners: readonly PlayerId[] | undefined;
   const registry = createPeerRegistry();
 
   /** room/state に載せる今の状態。出題が始まる前の参加でも呼ばれるので関数にする */
@@ -122,9 +131,24 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
       roomChanged: (room) => {
         deps.network.messenger.broadcast(toRoomState(room));
         roomHandlers.forEach((handler) => handler(room));
+        notifyStandings();
       },
     },
   });
+
+  /** 参加者の順に、今の得点を並べる。判定の記録が無い人も 0 点で載せる */
+  const standings = (): Standings => ({
+    points: playerIds().map((playerId) => ({
+      playerId,
+      points: scoreOf(quiz.scores(), playerId, deps.ruleSet.scoring),
+    })),
+    winners,
+  });
+
+  const notifyStandings = (): void => {
+    const current = standings();
+    standingsHandlers.forEach((handler) => handler(current));
+  };
 
   const playerIds = (): PlayerId[] => session.room().players.map((player) => player.id);
 
@@ -151,6 +175,15 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
       stateChanged: (state) => {
         wire.stateChanged(state);
         questionHandlers.forEach((handler) => handler(state));
+      },
+      scoresChanged: (scores) => {
+        wire.scoresChanged(scores);
+        notifyStandings();
+      },
+      gameEnded: (gameWinners, scores) => {
+        winners = gameWinners;
+        wire.gameEnded(gameWinners, scores);
+        notifyStandings();
       },
     },
   });
@@ -199,6 +232,12 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
     invite: deps.network.invite,
     presence: lobby.presence,
     onPresenceChanged: lobby.onPresenceChanged,
+    standings,
+    onStandingsChanged: (handler) => {
+      standingsHandlers.add(handler);
+
+      return () => standingsHandlers.delete(handler);
+    },
     question: quiz.state,
     onQuestionChanged: (handler) => {
       questionHandlers.add(handler);
@@ -217,6 +256,7 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
       lobby.dispose();
       roomHandlers.clear();
       questionHandlers.clear();
+      standingsHandlers.clear();
       deps.network.close();
     },
   };

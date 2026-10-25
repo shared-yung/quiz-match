@@ -137,6 +137,17 @@ export const en: MessageSchema = {
     closedTimeUp: 'Nobody buzzed in in time. This question is over.',
     closedAllLockedOut: 'No players can buzz in any more. This question is over.',
   },
+  scoreBoard: {
+    title: 'Scores',
+    empty: 'No players yet.',
+    points: '{points} pts',
+    you: '{name} (you)',
+    unknownPlayer: '(a player who is not in the room)',
+    winner: '{name} wins.',
+    draw: 'It is a draw. Winners: {names}',
+    nameSeparator: ', ',
+    winnerBadge: 'Winner',
+  },
   joinMatch: {
     title: 'Join a room',
     nameLabel: 'Display name',
