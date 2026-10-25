@@ -39,7 +39,7 @@ const createSubscriptions = () => {
   };
 };
 
-const setup = () => {
+const setup = ({ closeFails = false } = {}) => {
   const subscriptions = createSubscriptions();
   let ids = 0;
   const room = createRoomSession({
@@ -73,6 +73,7 @@ const setup = () => {
     nextQuestion: () => undefined,
     close: () => {
       closed += 1;
+      if (closeFails) throw new Error('閉じるのに失敗');
     },
   };
   const matchmaking: Matchmaking = {
@@ -121,5 +122,16 @@ describe('useHostMatchStore', () => {
 
     expect(() => store.close()).not.toThrow();
     expect(closed()).toBe(0);
+  });
+
+  it('対戦を閉じるのに失敗しても、その例外を返したうえで最初の状態に戻る', () => {
+    const { store, subscriptions } = setup({ closeFails: true });
+    store.open(ruleSet);
+
+    expect(() => store.close()).toThrow('閉じるのに失敗');
+
+    expect(store.room).toBeUndefined();
+    expect(store.question).toBeUndefined();
+    expect(subscriptions.active()).toBe(0);
   });
 });

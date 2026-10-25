@@ -118,14 +118,18 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
 
   /** 画面を離れるときに呼ぶ。接続をすべて閉じ、最初の状態に戻す */
   const close = (): void => {
-    lifetime?.dispose();
-    lifetime = undefined;
-    match = undefined;
-    signalings.clear();
-    room.value = undefined;
-    question.value = undefined;
-    presences.value = new Map();
-    invitations.value = [];
+    try {
+      lifetime?.dispose();
+    } finally {
+      // 後始末の例外は呼び出し側に返すが、画面は必ず最初の状態に戻す
+      lifetime = undefined;
+      match = undefined;
+      signalings.clear();
+      room.value = undefined;
+      question.value = undefined;
+      presences.value = new Map();
+      invitations.value = [];
+    }
   };
 
   return {
