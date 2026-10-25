@@ -14,6 +14,7 @@ import {
   type Transport,
 } from '@/features/net/domain';
 import type { PeerRegistry } from './peer-registry';
+import { createLifetime } from '@/shared/lifetime';
 
 /**
  * 参加を断った理由。room の `JoinRejection` と同じ値。use-case は他 feature の
@@ -72,6 +73,7 @@ export type HostLobby = {
  * 早押しや回答は扱わない。
  */
 export const createHostLobby = (deps: HostLobbyDeps): HostLobby => {
+  const lifetime = createLifetime();
   const { messenger } = deps;
   const playerOfToken = new Map<RejoinToken, PlayerId>();
   const presenceHandlers = new Set<(playerId: PlayerId, state: ConnectionState) => void>();
@@ -132,34 +134,38 @@ export const createHostLobby = (deps: HostLobbyDeps): HostLobby => {
     welcome(peerId, playerId, token);
   };
 
-  const unsubscribeMessages = messenger.onMessage((peerId, message) => {
-    // 名乗るのは1つの接続につき1回だけ。結ばれた後の名乗り直しは捨てる
-    if (deps.registry.playerOf(peerId) != undefined) return;
+  lifetime.defer(
+    messenger.onMessage((peerId, message) => {
+      // 名乗るのは1つの接続につき1回だけ。結ばれた後の名乗り直しは捨てる
+      if (deps.registry.playerOf(peerId) != undefined) return;
 
-    switch (message.type) {
-      case PlayerMessageType.Join:
-        join(peerId, message.name);
+      switch (message.type) {
+        case PlayerMessageType.Join:
+          join(peerId, message.name);
 
-        return;
-      case PlayerMessageType.Rejoin:
-        rejoin(peerId, message.token);
+          return;
+        case PlayerMessageType.Rejoin:
+          rejoin(peerId, message.token);
 
-        return;
-      // 出題のメッセージは受け持たない
-      case PlayerMessageType.Buzz:
-      case PlayerMessageType.Answer:
-        return;
-      default:
-        throw new ExhaustiveError(message);
-    }
-  });
+          return;
+        // 出題のメッセージは受け持たない
+        case PlayerMessageType.Buzz:
+        case PlayerMessageType.Answer:
+          return;
+        default:
+          throw new ExhaustiveError(message);
+      }
+    }),
+  );
 
-  const unsubscribeStates = deps.transport.onConnectionStateChanged((peerId, state) => {
-    const playerId = deps.registry.playerOf(peerId);
-    if (playerId == undefined) return;
+  lifetime.defer(
+    deps.transport.onConnectionStateChanged((peerId, state) => {
+      const playerId = deps.registry.playerOf(peerId);
+      if (playerId == undefined) return;
 
-    notifyPresence(playerId, state);
-  });
+      notifyPresence(playerId, state);
+    }),
+  );
 
   return {
     presence,
@@ -168,9 +174,6 @@ export const createHostLobby = (deps: HostLobbyDeps): HostLobby => {
 
       return () => presenceHandlers.delete(handler);
     },
-    dispose: () => {
-      unsubscribeMessages();
-      unsubscribeStates();
-    },
+    dispose: lifetime.dispose,
   };
 };
