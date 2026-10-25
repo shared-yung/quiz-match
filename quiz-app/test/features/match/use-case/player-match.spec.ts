@@ -176,6 +176,16 @@ describe('PlayerMatch', () => {
 describe('PlayerMatch の出題', () => {
   const start: HostMessage = { type: HostMessageType.QuestionStart, questionIndex: 0 };
 
+  /** つながって参加が受け付けられた状態にし、名乗りの送信は記録から消す */
+  const joined = () => {
+    const { match, network } = setup();
+    network.setConnectionState(ConnectionState.Connected);
+    network.receive({ type: HostMessageType.JoinAccepted, playerId: 'p1', rejoinToken: 't1' });
+    network.sent.splice(0);
+
+    return { match, network };
+  };
+
   it('出題のメッセージを受けたら出題の状態を進め、変わったことを知らせる', () => {
     const { match, network } = setup();
     const texts: string[] = [];
@@ -192,7 +202,7 @@ describe('PlayerMatch の出題', () => {
   });
 
   it('押せるときだけ buzz を送り、結果を待つ間は送らない', () => {
-    const { match, network } = setup();
+    const { match, network } = joined();
     match.buzz();
     network.receive(start);
 
@@ -204,7 +214,7 @@ describe('PlayerMatch の出題', () => {
   });
 
   it('却下されたら、また押せる', () => {
-    const { match, network } = setup();
+    const { match, network } = joined();
     network.receive(start);
     match.buzz();
 
@@ -215,6 +225,27 @@ describe('PlayerMatch の出題', () => {
       { type: PlayerMessageType.Buzz },
       { type: PlayerMessageType.Buzz },
     ]);
+  });
+
+  it('参加が受け付けられる前は送らない', () => {
+    const { match, network } = setup();
+    network.receive(start);
+
+    match.buzz();
+
+    expect(network.sent).toEqual([]);
+    expect(match.state().question).toMatchObject({ buzzPending: false });
+  });
+
+  it('ホストとの接続が切れている間は送らず、結果待ちにもしない', () => {
+    const { match, network } = joined();
+    network.receive(start);
+    network.setConnectionState(ConnectionState.Disconnected);
+
+    match.buzz();
+
+    expect(network.sent).toEqual([]);
+    expect(match.state().question).toMatchObject({ buzzPending: false });
   });
 
   it('参加が受け付けられた後は、自分の誤答で問題が続くとロックアウトされる', () => {

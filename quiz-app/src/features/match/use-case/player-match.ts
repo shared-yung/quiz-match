@@ -135,7 +135,9 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     },
     connect: deps.network.connect,
     buzz: () => {
-      if (!canBuzz(question)) return;
+      // ホストに届かない押下は採用も却下も返らず、結果待ちのまま解けなくなる。
+      // 参加が受け付けられ、つながっている間だけ送る
+      if (lobby.state().status !== PlayerLobbyStatus.Joined || !canBuzz(question)) return;
 
       deps.network.messenger.send({ type: PlayerMessageType.Buzz });
       applyQuestion({ type: PlayerQuestionEventType.BuzzSent });
