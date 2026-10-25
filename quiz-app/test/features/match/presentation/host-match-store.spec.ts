@@ -70,6 +70,7 @@ const setup = ({ closeFails = false } = {}) => {
     startReveal: () => undefined,
     pauseReveal: () => undefined,
     resumeReveal: () => undefined,
+    judge: () => undefined,
     nextQuestion: () => undefined,
     close: () => {
       closed += 1;
