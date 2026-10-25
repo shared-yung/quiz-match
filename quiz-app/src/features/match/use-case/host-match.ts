@@ -23,6 +23,7 @@ import {
   type Timer,
   type WrongAnswerChoice,
 } from '@/features/quiz';
+import { ExhaustiveError } from '@/shared/exhaustive-error';
 import {
   catchUpMessages,
   PlayerMessageType,
@@ -170,8 +171,22 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
     const playerId = registry.playerOf(peerId);
     if (playerId == undefined) return;
 
-    if (message.type === PlayerMessageType.Buzz) quiz.buzz(playerId);
-    if (message.type === PlayerMessageType.Answer) quiz.submitAnswer(playerId, message.text);
+    switch (message.type) {
+      case PlayerMessageType.Buzz:
+        quiz.buzz(playerId);
+
+        return;
+      case PlayerMessageType.Answer:
+        quiz.submitAnswer(playerId, message.text);
+
+        return;
+      // 名乗りはロビーが受け持つ
+      case PlayerMessageType.Join:
+      case PlayerMessageType.Rejoin:
+        return;
+      default:
+        throw new ExhaustiveError(message);
+    }
   });
 
   return {
