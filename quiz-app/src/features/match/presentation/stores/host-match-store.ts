@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, shallowRef } from 'vue';
 import type { HostMatch } from '@/features/match/use-case';
 import { ConnectionState, type PeerId, type Signaling, useNetworking } from '@/features/net';
-import type { QuestionState } from '@/features/quiz';
+import type { QuestionState, WrongAnswerChoice } from '@/features/quiz';
 import type { PlayerId, Room, RuleSet } from '@/features/room';
 import { useMatchmaking } from '@/features/match/presentation/composables/use-matchmaking';
 import { createLifetime, type Lifetime } from '@/shared/lifetime';
@@ -114,6 +114,8 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
   const startReveal = (): void => match?.startReveal();
   const pauseReveal = (): void => match?.pauseReveal();
   const resumeReveal = (): void => match?.resumeReveal();
+  const judge = (correct: boolean, choice?: WrongAnswerChoice): void =>
+    match?.judge(correct, choice);
   const nextQuestion = (): void => match?.nextQuestion();
 
   /** 画面を離れるときに呼ぶ。接続をすべて閉じ、最初の状態に戻す */
@@ -144,6 +146,7 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
     startReveal,
     pauseReveal,
     resumeReveal,
+    judge,
     nextQuestion,
     close,
   };

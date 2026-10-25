@@ -4,26 +4,36 @@ import {
   characterCount,
   CloseReason,
   isFullyRevealed,
+  OnWrongAnswer,
   Phase,
   type QuestionState,
   revealedText,
   unrevealedText,
+  WrongAnswerChoice,
 } from '@/features/quiz/domain';
+import type { PlayerId } from '@/shared/identity';
 import { type MessageKey, useAppI18n } from '@/shared/i18n';
 
 /**
- * ホストの出題の操作。問題文の入力、公開の開始・一時停止・再開、次の問題へ。
+ * ホストの出題の操作。問題文の入力、公開の開始・一時停止・再開、押した人の回答の判定、次の問題へ。
  *
  * 状態は受け取るだけで、操作は emit で返す。どう進めるかはセッション（use-case）が決め、
  * 受け付けられない操作はそこで捨てられる。
  */
-const props = defineProps<{ state: QuestionState }>();
+const props = defineProps<{
+  state: QuestionState;
+  /** 参加者。押した人の名前を出すのに使う */
+  players: readonly { id: PlayerId; name: string }[];
+  /** 誤答時の挙動。`hostDecides` なら誤答のボタンを「続ける」「打ち切る」に分ける */
+  onWrongAnswer: OnWrongAnswer;
+}>();
 
 const emit = defineEmits<{
   setQuestion: [text: string];
   startReveal: [];
   pauseReveal: [];
   resumeReveal: [];
+  judge: [correct: boolean, choice?: WrongAnswerChoice];
   nextQuestion: [];
 }>();
 
@@ -38,6 +48,13 @@ const closedKey = {
 } as const satisfies Record<CloseReason, MessageKey>;
 
 const draft = ref('');
+
+/** 参加者の表示名。判定の前に退室していれば、居ないことが分かる文言にする */
+const nameOf = (playerId: PlayerId): string =>
+  props.players.find((player) => player.id === playerId)?.name ?? t('hostQuestion.unknownPlayer');
+
+/** 誤答の挙動をホストが選ぶか */
+const hostDecides = computed(() => props.onWrongAnswer === OnWrongAnswer.HostDecides);
 
 const submitQuestion = (): void => {
   emit('setQuestion', draft.value);
@@ -130,9 +147,47 @@ const revealingStatus = computed((): MessageKey | undefined => {
           />
         </template>
         <div v-else-if="state.phase === Phase.Buzzed" class="text-body2">
-          {{ t('hostQuestion.statusBuzzed') }}
+          {{ t('hostQuestion.statusBuzzed', { name: nameOf(state.buzzer) }) }}
         </div>
-        <div v-else class="text-body2">{{ t('hostQuestion.statusJudging') }}</div>
+        <template v-else-if="state.phase === Phase.Judging">
+          <div class="text-body2">
+            {{ t('hostQuestion.statusJudging', { name: nameOf(state.answerer) }) }}
+          </div>
+          <q-input
+            v-if="state.answer != undefined"
+            :model-value="state.answer"
+            readonly
+            :label="t('hostQuestion.answerLabel')"
+          />
+          <div v-else class="text-body2 text-grey-7">{{ t('hostQuestion.noAnswer') }}</div>
+          <div class="q-gutter-sm">
+            <q-btn
+              color="positive"
+              :label="t('hostQuestion.judgeCorrect')"
+              @click="emit('judge', true)"
+            />
+            <template v-if="hostDecides">
+              <q-btn
+                color="negative"
+                :label="t('hostQuestion.judgeWrongContinue')"
+                @click="emit('judge', false, WrongAnswerChoice.Continue)"
+              />
+              <q-btn
+                color="negative"
+                outline
+                :label="t('hostQuestion.judgeWrongEnd')"
+                @click="emit('judge', false, WrongAnswerChoice.EndQuestion)"
+              />
+            </template>
+            <q-btn
+              v-else
+              color="negative"
+              :label="t('hostQuestion.judgeWrong')"
+              @click="emit('judge', false)"
+            />
+          </div>
+          <div v-if="hostDecides" class="text-caption">{{ t('hostQuestion.hostDecidesHelp') }}</div>
+        </template>
       </template>
 
       <template v-else-if="state.phase === Phase.Closed">

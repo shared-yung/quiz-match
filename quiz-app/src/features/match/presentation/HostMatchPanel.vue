@@ -51,10 +51,13 @@ onUnmounted(() => store.close());
       <HostQuestionControl
         v-if="store.question != undefined"
         :state="store.question"
+        :players="store.room.players"
+        :on-wrong-answer="store.room.ruleSet.onWrongAnswer"
         @set-question="store.setQuestion"
         @start-reveal="store.startReveal"
         @pause-reveal="store.pauseReveal"
         @resume-reveal="store.resumeReveal"
+        @judge="store.judge"
         @next-question="store.nextQuestion"
       />
 
