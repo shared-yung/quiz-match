@@ -1,0 +1,67 @@
+name: E2E
+
+# main へのマージ時に E2E（Playwright）を走らせる（docs/tooling/testing.md の「CI」）。
+#
+# PR では走らせない。PR の CI（ci.yml）は typecheck + lint + unit のままにして、
+# 実行時間を伸ばさない。失敗したら issue で知らせる。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: quiz-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+        working-directory: .
+
+      - name: Playwright のブラウザを入れる
+        run: bun x playwright install --with-deps chromium
+
+      - name: E2E
+        run: bun run test:e2e
+        env:
+          CI: 'true'
+
+      - name: 失敗したときのレポートを残す
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            quiz-app/playwright-report/
+            quiz-app/test-results/
+          retention-days: 14
+
+  notify-failure:
+    needs: e2e
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 失敗を issue で知らせる
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/notify-e2e-failure.sh

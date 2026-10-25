@@ -90,7 +90,8 @@ presentation にカバレッジ閾値を課すと、数字を満たすためだ�
 ## CI
 
 - PR: typecheck + lint + ユニットテスト（`CI` ワークフロー）
-- main へのマージ時: E2E
+- main へのマージ時: E2E（`E2E` ワークフロー、`.github/workflows/e2e.yml`）。PR では走らせず、PR の実行時間を伸ばさない。手動でも実行できる（workflow_dispatch）
+- E2E が失敗したら、`main の E2E が失敗している` という issue を立てて知らせる。開いたままなら同じ issue にコメントを足す（`scripts/notify-e2e-failure.sh`）。レポートは実行の Artifacts（`playwright-report`）に残る
 
 ## 判断の目安
 
