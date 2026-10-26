@@ -16,6 +16,13 @@
   - **テストを変えてよいのは実装の前だけ。** 実装の後でテストや期待値を変えたくなったら、手を止めて理由を述べる
 - **パッケージ操作は bun。** npm / yarn / pnpm は使わない
 
+## 進め方（AI エージェント）
+
+- 互いに依存しない読み込み・編集・テストは、まとめて並列に実行する
+- ローカルの編集・テスト・コミットまでは、承認を待たずに進める
+- **リモート操作（push・PR の作成・issue やコメント）は作業の区切りごとに一覧にして見せ、1回の承認でまとめて実行する。** 一覧に無い操作は実行しない → [docs/workflow/remote-guardrails.md](docs/workflow/remote-guardrails.md)
+  - 例外: 作業の前提になるリモート操作（着手前の issue の作成など）は先に承認を取る。CI の結果を見て直したら、もう一度まとめて承認を取る
+
 ## スタック
 
 Vue 3 + Quasar（SPA）+ TypeScript / bun / Pinia / zod / vue-i18n / ESLint + Prettier / Vitest + Playwright。
@@ -40,7 +47,7 @@ scripts/          hook と CI から呼ぶシェルスクリプト
 | 作業の始め方、issue-driven の強制方法       | [docs/workflow/issue-driven.md](docs/workflow/issue-driven.md)                                   |
 | ブランチ名とコミットメッセージの形式        | [docs/workflow/commit-and-branch.md](docs/workflow/commit-and-branch.md)                         |
 | GitHub 側の初期設定                         | [docs/workflow/branch-protection.md](docs/workflow/branch-protection.md)                         |
-| リモート操作の承認ガードレール              | [docs/workflow/remote-guardrails.md](docs/workflow/remote-guardrails.md)                         |
+| リモート操作の承認と、承認をまとめる進め方  | [docs/workflow/remote-guardrails.md](docs/workflow/remote-guardrails.md)                         |
 | 層構成と依存の向き                          | [docs/architecture/onion-layers.md](docs/architecture/onion-layers.md)                           |
 | Pinia に何を書いてよいか                    | [docs/architecture/pinia.md](docs/architecture/pinia.md)                                         |
 | API の型生成と腐敗防止層                    | [docs/architecture/api-client.md](docs/architecture/api-client.md)                               |
