@@ -21,9 +21,12 @@ import {
   type Scores,
   type Scoring,
   type Timer,
+  type WrongAnswerChoice,
 } from '@/features/quiz';
+import { ExhaustiveError } from '@/shared/exhaustive-error';
 import {
   catchUpMessages,
+  PlayerMessageType,
   type HostMessage,
   type QuestionProgress,
   type RejoinToken,
@@ -84,6 +87,8 @@ export type HostMatch = {
   pauseReveal: () => void;
   /** 一時停止した公開を再開する */
   resumeReveal: () => void;
+  /** 正誤を判定する。`hostDecides` の誤答では `choice` が要り、無ければ捨てる */
+  judge: (correct: boolean, choice?: WrongAnswerChoice) => void;
   /** 次の問題へ */
   nextQuestion: () => void;
   /** すべての接続を閉じ、購読をやめる。画面を離れるときに呼ぶ */
@@ -98,7 +103,7 @@ export type HostMatch = {
  * （docs/spec/p2p-protocol.md の「再参加と途中参加」）。
  *
  * 出題は quiz の `QuestionSession` に任せ、その通知を回線のメッセージにして配る。
- * プレイヤーからの早押しと回答はまだ受け付けていない（#23 でつなぐ）。
+ * プレイヤーからの早押しと回答は、参加者に結ばれた接続から届いたものだけを渡す。
  */
 
 export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
@@ -161,6 +166,29 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
     generateRejoinToken: deps.generateRejoinToken,
   });
 
+  // 名乗り（join / rejoin）はロビーが受け持つ。ここでは参加者に結ばれた接続からの出題の操作だけを渡す
+  const unsubscribeQuestion = deps.network.messenger.onMessage((peerId, message) => {
+    const playerId = registry.playerOf(peerId);
+    if (playerId == undefined) return;
+
+    switch (message.type) {
+      case PlayerMessageType.Buzz:
+        quiz.buzz(playerId);
+
+        return;
+      case PlayerMessageType.Answer:
+        quiz.submitAnswer(playerId, message.text);
+
+        return;
+      // 名乗りはロビーが受け持つ
+      case PlayerMessageType.Join:
+      case PlayerMessageType.Rejoin:
+        return;
+      default:
+        throw new ExhaustiveError(message);
+    }
+  });
+
   return {
     room: session.room,
     onRoomChanged: (handler) => {
@@ -181,8 +209,10 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
     startReveal: quiz.startReveal,
     pauseReveal: quiz.pauseReveal,
     resumeReveal: quiz.resumeReveal,
+    judge: quiz.judge,
     nextQuestion: quiz.nextQuestion,
     close: () => {
+      unsubscribeQuestion();
       quiz.dispose();
       lobby.dispose();
       roomHandlers.clear();

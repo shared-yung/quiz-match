@@ -16,6 +16,7 @@ export {
   type Scoring,
   scoreOf,
   type Timer,
+  WrongAnswerChoice,
 } from '@/features/quiz/domain';
 export { createQuestionSession, type QuestionSession } from '@/features/quiz/use-case';
 export { HostQuestionControl } from '@/features/quiz/presentation';

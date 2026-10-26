@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHostMatch, type HostMatchDeps } from '@/features/match/use-case/host-match';
 import { ConnectionState } from '@/features/net';
-import { Phase as QuizPhase, type QuestionState } from '@/features/quiz';
+import { Phase as QuizPhase, type QuestionState, WrongAnswerChoice } from '@/features/quiz';
 import { ruleSetSchema, type Room } from '@/features/room';
 import {
   HostMessageType,
@@ -295,3 +295,100 @@ describe('HostMatch の出題', () => {
     ]);
   });
 });
+
+describe('HostMatch の早押しと判定', () => {
+  const interval = ruleSet.revealIntervalMs;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** 参加者を1人迎え、公開を1文字まで進める */
+  const revealing = (overrides: Partial<HostMatchDeps> = {}) => {
+    const { match, network } = setup(overrides);
+    const { peerId } = match.invite();
+    network.receive(peerId, { type: PlayerMessageType.Join, name: 'たろう' });
+    const [player] = match.room().players;
+    if (player == undefined) throw new Error('参加していません');
+    match.setQuestion('クイズ');
+    match.startReveal();
+    vi.advanceTimersByTime(interval);
+
+    return { match, network, peerId, playerId: player.id };
+  };
+
+  it('参加者から buzz が届くと、その人が押した状態になる', () => {
+    const { match, network, peerId, playerId } = revealing();
+
+    network.receive(peerId, { type: PlayerMessageType.Buzz });
+
+    expect(match.question()).toMatchObject({ phase: QuizPhase.Buzzed, buzzer: playerId });
+  });
+
+  it('参加していない接続からの buzz は捨てる', () => {
+    const { match, network } = revealing();
+    const stranger = match.invite().peerId;
+
+    network.receive(stranger, { type: PlayerMessageType.Buzz });
+
+    expect(match.question().phase).toBe(QuizPhase.Revealing);
+  });
+
+  it('押した人から answer が届くと、回答を持って判定待ちになる', () => {
+    const { match, network, peerId, playerId } = revealing();
+    network.receive(peerId, { type: PlayerMessageType.Buzz });
+
+    network.receive(peerId, { type: PlayerMessageType.Answer, text: 'こたえ' });
+
+    expect(match.question()).toMatchObject({
+      phase: QuizPhase.Judging,
+      answerer: playerId,
+      answer: 'こたえ',
+    });
+  });
+
+  it('正解と判定すると問題が終わり、正解文が届く', () => {
+    const { match, network, peerId } = revealing();
+    network.receive(peerId, { type: PlayerMessageType.Buzz });
+    network.receive(peerId, { type: PlayerMessageType.Answer, text: 'クイズ' });
+
+    match.judge(true);
+
+    expect(match.question()).toMatchObject({ phase: QuizPhase.Closed });
+    expect(questionEnd(network.broadcasted)).toEqual({
+      type: HostMessageType.QuestionEnd,
+      answerText: 'クイズ',
+      reason: QuestionEndReason.Correct,
+    });
+  });
+
+  it('hostDecides の誤答は、選んだ挙動で進む。選ばなければ判定待ちのまま', () => {
+    const hostDecides = ruleSetSchema.parse({ onWrongAnswer: OnWrongAnswer.HostDecides });
+    const { match, network, peerId } = revealing({ ruleSet: hostDecides });
+    network.receive(peerId, { type: PlayerMessageType.Buzz });
+    network.receive(peerId, { type: PlayerMessageType.Answer, text: 'ちがう' });
+
+    match.judge(false);
+    expect(match.question().phase).toBe(QuizPhase.Judging);
+
+    match.judge(false, WrongAnswerChoice.EndQuestion);
+    expect(match.question()).toMatchObject({ phase: QuizPhase.Closed });
+  });
+
+  it('close した後は buzz に反応しない', () => {
+    const { match, network, peerId } = revealing();
+
+    match.close();
+    network.receive(peerId, { type: PlayerMessageType.Buzz });
+
+    expect(match.question().phase).toBe(QuizPhase.Revealing);
+  });
+});
+
+/** 最後に送った問題の終了 */
+const questionEnd = (messages: readonly HostMessage[]) =>
+  messages.findLast((message) => message.type === HostMessageType.QuestionEnd);
