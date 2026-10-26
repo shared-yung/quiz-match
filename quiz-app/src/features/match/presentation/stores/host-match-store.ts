@@ -5,6 +5,7 @@ import { ConnectionState, type PeerId, type Signaling, useNetworking } from '@/f
 import type { QuestionState } from '@/features/quiz';
 import type { PlayerId, Room, RuleSet } from '@/features/room';
 import { useMatchmaking } from '@/features/match/presentation/composables/use-matchmaking';
+import { createLifetime, type Lifetime } from '@/shared/lifetime';
 
 /** 招待1件分の表示状態。 */
 export type Invitation = {
@@ -29,9 +30,10 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
   const matchmaking = useMatchmaking();
 
   let match: HostMatch | undefined;
+  /** 開いた対戦の寿命。対戦と購読はここに登録し、`close` でまとめて止める */
+  let lifetime: Lifetime | undefined;
   /** 招待ごとの接続確立。表示しないのでリアクティブにしない */
   const signalings = new Map<PeerId, Signaling>();
-  const unsubscribes: (() => void)[] = [];
 
   const room = shallowRef<Room | undefined>();
   /** 出題の状態。ルームを作るまでは `undefined` */
@@ -45,15 +47,22 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
   const open = (ruleSet: RuleSet): void => {
     const opened = matchmaking.host({ ruleSet, network: networking.openHost() });
     match = opened;
+    lifetime = createLifetime();
+    // 逆順に止まるので、対戦を閉じるのは購読をやめた後になる
+    lifetime.defer(opened.close);
     room.value = opened.room();
     question.value = opened.question();
-    unsubscribes.push(
+    lifetime.defer(
       opened.onRoomChanged((next) => {
         room.value = next;
       }),
+    );
+    lifetime.defer(
       opened.onQuestionChanged((next) => {
         question.value = next;
       }),
+    );
+    lifetime.defer(
       opened.onPresenceChanged((playerId, state) => {
         presences.value.set(playerId, state);
       }),
@@ -64,7 +73,7 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
     presences.value.get(playerId) ?? match?.presence(playerId) ?? ConnectionState.Disconnected;
 
   const invite = async (): Promise<void> => {
-    if (match == undefined) return;
+    if (match == undefined || lifetime == undefined) return;
 
     const { peerId, signaling } = match.invite();
     signalings.set(peerId, signaling);
@@ -75,7 +84,7 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
       answerFailed: false,
       state: signaling.connectionState(),
     });
-    unsubscribes.push(
+    lifetime.defer(
       signaling.onConnectionStateChanged((state) => {
         const invitation = invitationOf(peerId);
         if (invitation != undefined) invitation.state = state;
@@ -109,14 +118,18 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
 
   /** 画面を離れるときに呼ぶ。接続をすべて閉じ、最初の状態に戻す */
   const close = (): void => {
-    unsubscribes.splice(0).forEach((unsubscribe) => unsubscribe());
-    match?.close();
-    match = undefined;
-    signalings.clear();
-    room.value = undefined;
-    question.value = undefined;
-    presences.value = new Map();
-    invitations.value = [];
+    try {
+      lifetime?.dispose();
+    } finally {
+      // 後始末の例外は呼び出し側に返すが、画面は必ず最初の状態に戻す
+      lifetime = undefined;
+      match = undefined;
+      signalings.clear();
+      room.value = undefined;
+      question.value = undefined;
+      presences.value = new Map();
+      invitations.value = [];
+    }
   };
 
   return {

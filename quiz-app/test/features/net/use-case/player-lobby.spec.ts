@@ -161,4 +161,14 @@ describe('PlayerLobby', () => {
     expect(messenger.sent).toEqual([]);
     expect(states).toEqual([]);
   });
+
+  it('2回目の dispose は何もせず、反応しないまま', () => {
+    const { lobby, messenger, connect } = setup();
+
+    lobby.dispose();
+    expect(() => lobby.dispose()).not.toThrow();
+    connect();
+
+    expect(messenger.sent).toEqual([]);
+  });
 });

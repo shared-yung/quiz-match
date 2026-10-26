@@ -1,4 +1,5 @@
 import { ExhaustiveError } from '@/shared/exhaustive-error';
+import { createLifetime } from '@/shared/lifetime';
 import type { PlayerId } from '@/shared/identity';
 import { durationBetween, type DurationMs } from '@/shared/time';
 import {
@@ -166,21 +167,16 @@ export const createQuestionSession = ({
   /** いま張っているタイマーを取り消す関数。待つものが無い状態では持たない */
   let cancelTimer: (() => void) | undefined;
 
-  /**
-   * セッションの寿命。**破棄は一方向で、破棄していない状態へは戻らない。**
-   *
-   * 書き換えられる boolean では持たない。`AbortSignal.aborted` は読み取り専用で、
-   * `abort()` は何度呼んでも害が無い。破棄したときに止めるものは `abort` に登録する。
-   */
-  const lifetime = new AbortController();
-  lifetime.signal.addEventListener('abort', () => {
+  /** セッションの寿命。破棄したら張っているタイマーを取り消す */
+  const lifetime = createLifetime();
+  lifetime.defer(() => {
     cancelTimer?.();
     cancelTimer = undefined;
   });
 
   const dispatch = (event: QuestionEvent): TransitionResult => {
     // 破棄した後は、どの状態でも意味を持たないイベントとして扱う。却下の通知も出さない
-    if (lifetime.signal.aborted) return { accepted: false, reason: RejectReason.InvalidPhase };
+    if (lifetime.disposed) return { accepted: false, reason: RejectReason.InvalidPhase };
 
     const result = transition(current, event, { rules, players: players(), now: timer.now() });
 
@@ -362,6 +358,6 @@ export const createQuestionSession = ({
     submitAnswer,
     judge,
     nextQuestion,
-    dispose: () => lifetime.abort(),
+    dispose: lifetime.dispose,
   };
 };

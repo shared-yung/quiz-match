@@ -243,4 +243,15 @@ describe('HostLobby', () => {
     expect(messenger.sentTo).toHaveLength(sentBefore);
     expect(changes).toEqual([]);
   });
+
+  it('2回目の dispose は何もせず、反応しないまま', () => {
+    const { lobby, messenger } = setup();
+    const sentBefore = messenger.sentTo.length;
+
+    lobby.dispose();
+    expect(() => lobby.dispose()).not.toThrow();
+    messenger.receive(peer('peer-1'), { type: PlayerMessageType.Join, name: 'taro' });
+
+    expect(messenger.sentTo).toHaveLength(sentBefore);
+  });
 });

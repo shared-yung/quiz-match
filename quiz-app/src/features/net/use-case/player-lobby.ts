@@ -6,6 +6,7 @@ import {
   type RejoinToken,
 } from '@/shared/protocol';
 import { ConnectionState, type PlayerMessenger, type Transport } from '@/features/net/domain';
+import { createLifetime } from '@/shared/lifetime';
 
 /** プレイヤーから見た、ルームへの参加の状態。 */
 export const PlayerLobbyStatus = {
@@ -59,6 +60,7 @@ export type PlayerLobby = {
  * トークンはメモリにだけ持つ。タブを読み込み直すと失われ、新しく参加することになる。
  */
 export const createPlayerLobby = (deps: PlayerLobbyDeps): PlayerLobby => {
+  const lifetime = createLifetime();
   let current: PlayerLobbyState = { status: PlayerLobbyStatus.Waiting };
   let credentials: { playerId: PlayerRef; rejoinToken: RejoinToken } | undefined;
   const handlers = new Set<(state: PlayerLobbyState) => void>();
@@ -69,38 +71,42 @@ export const createPlayerLobby = (deps: PlayerLobbyDeps): PlayerLobby => {
   };
 
   // 相手はホストだけなので、どの PeerId の変化かは見ない
-  const unsubscribeStates = deps.transport.onConnectionStateChanged((_peerId, state) => {
-    if (state === ConnectionState.Disconnected) {
-      if (credentials != undefined) {
-        setState({ status: PlayerLobbyStatus.Disconnected, playerId: credentials.playerId });
-      } else if (current.status === PlayerLobbyStatus.Joining) {
-        // 名乗る前に切れた。席が無いので待つところからやり直す
-        setState({ status: PlayerLobbyStatus.Waiting });
+  lifetime.defer(
+    deps.transport.onConnectionStateChanged((_peerId, state) => {
+      if (state === ConnectionState.Disconnected) {
+        if (credentials != undefined) {
+          setState({ status: PlayerLobbyStatus.Disconnected, playerId: credentials.playerId });
+        } else if (current.status === PlayerLobbyStatus.Joining) {
+          // 名乗る前に切れた。席が無いので待つところからやり直す
+          setState({ status: PlayerLobbyStatus.Waiting });
+        }
+
+        return;
       }
+      if (state !== ConnectionState.Connected) return;
 
-      return;
-    }
-    if (state !== ConnectionState.Connected) return;
+      deps.messenger.send(
+        credentials == undefined
+          ? { type: PlayerMessageType.Join, name: deps.name }
+          : { type: PlayerMessageType.Rejoin, token: credentials.rejoinToken },
+      );
+      setState({ status: PlayerLobbyStatus.Joining });
+    }),
+  );
 
-    deps.messenger.send(
-      credentials == undefined
-        ? { type: PlayerMessageType.Join, name: deps.name }
-        : { type: PlayerMessageType.Rejoin, token: credentials.rejoinToken },
-    );
-    setState({ status: PlayerLobbyStatus.Joining });
-  });
-
-  const unsubscribeMessages = deps.messenger.onMessage((message) => {
-    if (message.type === HostMessageType.JoinAccepted) {
-      credentials = { playerId: message.playerId, rejoinToken: message.rejoinToken };
-      setState({ status: PlayerLobbyStatus.Joined, playerId: message.playerId });
-    }
-    if (message.type === HostMessageType.JoinRejected) {
-      // 断られた身元ではもう名乗れない。次につながったら新しく参加する
-      credentials = undefined;
-      setState({ status: PlayerLobbyStatus.Rejected, reason: message.reason });
-    }
-  });
+  lifetime.defer(
+    deps.messenger.onMessage((message) => {
+      if (message.type === HostMessageType.JoinAccepted) {
+        credentials = { playerId: message.playerId, rejoinToken: message.rejoinToken };
+        setState({ status: PlayerLobbyStatus.Joined, playerId: message.playerId });
+      }
+      if (message.type === HostMessageType.JoinRejected) {
+        // 断られた身元ではもう名乗れない。次につながったら新しく参加する
+        credentials = undefined;
+        setState({ status: PlayerLobbyStatus.Rejected, reason: message.reason });
+      }
+    }),
+  );
 
   return {
     state: () => current,
@@ -109,9 +115,6 @@ export const createPlayerLobby = (deps: PlayerLobbyDeps): PlayerLobby => {
 
       return () => handlers.delete(handler);
     },
-    dispose: () => {
-      unsubscribeStates();
-      unsubscribeMessages();
-    },
+    dispose: lifetime.dispose,
   };
 };
