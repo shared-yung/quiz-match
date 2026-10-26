@@ -6,6 +6,7 @@ import {
   toRoomStateMessage,
   toRoomView,
   toGameProgress,
+  toPlayerQuestionEvent,
 } from '@/features/match/infrastructure';
 import { provideMatchmaking } from '@/features/match/presentation';
 import { createHostMatch, createPlayerMatch } from '@/features/match/use-case';
@@ -30,6 +31,7 @@ export const installMatch = (app: App): void => {
         toQuestionNotifier: createQuestionBroadcaster,
         timer: createSystemTimer(),
       }),
-    join: ({ name, network }) => createPlayerMatch({ name, network, toRoomView }),
+    join: ({ name, network }) =>
+      createPlayerMatch({ name, network, toRoomView, toPlayerQuestionEvent }),
   });
 };

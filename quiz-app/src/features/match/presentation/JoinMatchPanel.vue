@@ -2,6 +2,7 @@
 import { computed, onUnmounted, ref } from 'vue';
 import { copyToClipboard } from 'quasar';
 import { type PlayerLobbyState, PlayerLobbyStatus } from '@/features/net';
+import { PlayerQuestionView } from '@/features/quiz';
 import { RuleSetSummary } from '@/features/room';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import { type MessageKey, useAppI18n } from '@/shared/i18n';
@@ -40,6 +41,16 @@ const statusKey = (lobby: PlayerLobbyState): MessageKey => {
       throw new ExhaustiveError(lobby);
   }
 };
+
+/** 自分の id。参加が受け付けられるまでは無い */
+const self = computed(() => {
+  const lobby = store.state?.lobby;
+
+  return lobby?.status === PlayerLobbyStatus.Joined ||
+    lobby?.status === PlayerLobbyStatus.Disconnected
+    ? lobby.playerId
+    : undefined;
+});
 
 const createAnswer = async (): Promise<void> => {
   copied.value = false;
@@ -106,6 +117,12 @@ onUnmounted(() => store.close());
       </template>
 
       <template v-if="store.state.room != undefined">
+        <PlayerQuestionView
+          :question="store.state.question"
+          :players="store.state.room.players"
+          :self="self"
+          @buzz="store.buzz"
+        />
         <q-card flat bordered>
           <q-card-section>
             <div class="text-subtitle1">
