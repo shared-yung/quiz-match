@@ -5,6 +5,7 @@ import { ConnectionState, type PeerId } from '@/features/net';
 import { HostQuestionControl } from '@/features/quiz';
 import { RuleSetForm, RuleSetSummary } from '@/features/room';
 import { type MessageKey, useAppI18n } from '@/shared/i18n';
+import ScoreBoard from './ScoreBoard.vue';
 import { useHostMatchStore } from './stores/host-match-store';
 
 const { t } = useAppI18n();
@@ -59,6 +60,12 @@ onUnmounted(() => store.close());
         @resume-reveal="store.resumeReveal"
         @judge="store.judge"
         @next-question="store.nextQuestion"
+      />
+
+      <ScoreBoard
+        v-if="store.standings != undefined"
+        :standings="store.standings"
+        :players="store.room.players"
       />
 
       <q-card flat bordered>

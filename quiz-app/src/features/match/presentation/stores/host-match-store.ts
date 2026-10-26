@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, shallowRef } from 'vue';
-import type { HostMatch } from '@/features/match/use-case';
+import type { HostMatch, Standings } from '@/features/match/use-case';
 import { ConnectionState, type PeerId, type Signaling, useNetworking } from '@/features/net';
 import type { QuestionState, WrongAnswerChoice } from '@/features/quiz';
 import type { PlayerId, Room, RuleSet } from '@/features/room';
@@ -38,6 +38,8 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
   const room = shallowRef<Room | undefined>();
   /** 出題の状態。ルームを作るまでは `undefined` */
   const question = shallowRef<QuestionState | undefined>();
+  /** 得点と勝敗。ルームを作るまでは `undefined` */
+  const standings = shallowRef<Standings | undefined>();
   const presences = ref(new Map<PlayerId, ConnectionState>());
   const invitations = ref<Invitation[]>([]);
 
@@ -52,6 +54,7 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
     lifetime.defer(opened.close);
     room.value = opened.room();
     question.value = opened.question();
+    standings.value = opened.standings();
     lifetime.defer(
       opened.onRoomChanged((next) => {
         room.value = next;
@@ -60,6 +63,11 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
     lifetime.defer(
       opened.onQuestionChanged((next) => {
         question.value = next;
+      }),
+    );
+    lifetime.defer(
+      opened.onStandingsChanged((next) => {
+        standings.value = next;
       }),
     );
     lifetime.defer(
@@ -129,6 +137,7 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
       signalings.clear();
       room.value = undefined;
       question.value = undefined;
+      standings.value = undefined;
       presences.value = new Map();
       invitations.value = [];
     }
@@ -137,6 +146,7 @@ export const useHostMatchStore = defineStore('hostMatch', () => {
   return {
     room,
     question,
+    standings,
     invitations,
     open,
     presenceOf,

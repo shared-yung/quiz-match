@@ -7,6 +7,7 @@ import { RuleSetSummary } from '@/features/room';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import { type MessageKey, useAppI18n } from '@/shared/i18n';
 import { displayNameSchema, JoinRejectedReason } from '@/shared/protocol';
+import ScoreBoard from './ScoreBoard.vue';
 import { useJoinMatchStore } from './stores/join-match-store';
 
 const { t } = useAppI18n();
@@ -124,6 +125,11 @@ onUnmounted(() => store.close());
           :answer-remaining-ms="store.state.answerRemainingMs"
           @buzz="store.buzz"
           @answer="store.submitAnswer"
+        />
+        <ScoreBoard
+          :standings="store.state.standings"
+          :players="store.state.room.players"
+          :self="self"
         />
         <q-card flat bordered>
           <q-card-section>

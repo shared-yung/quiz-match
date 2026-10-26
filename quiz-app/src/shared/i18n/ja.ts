@@ -138,6 +138,17 @@ export const ja = {
     closedTimeUp: '誰も押さないまま時間が過ぎ、この問題は終わりました。',
     closedAllLockedOut: '押せる人が居なくなり、この問題は終わりました。',
   },
+  scoreBoard: {
+    title: '得点',
+    empty: 'まだ参加者がいません。',
+    points: '{points} 点',
+    you: '{name}（あなた）',
+    unknownPlayer: '（ルームに居ないプレイヤー）',
+    winner: '{name} の勝ちです。',
+    draw: '引き分けです。勝者: {names}',
+    nameSeparator: '、',
+    winnerBadge: '勝者',
+  },
   joinMatch: {
     title: 'ルームに参加する',
     nameLabel: '表示名',

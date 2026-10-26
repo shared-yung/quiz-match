@@ -64,6 +64,8 @@ const setup = ({ closeFails = false } = {}) => {
     invite: () => ({ peerId: 'peer-1' as PeerId, signaling }),
     presence: () => ConnectionState.Disconnected,
     onPresenceChanged: () => subscriptions.subscribe(),
+    standings: () => ({ points: [], winners: undefined }),
+    onStandingsChanged: () => subscriptions.subscribe(),
     question: () => initialQuestionState(),
     onQuestionChanged: () => subscriptions.subscribe(),
     setQuestion: () => undefined,
