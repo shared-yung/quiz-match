@@ -121,7 +121,9 @@ onUnmounted(() => store.close());
           :question="store.state.question"
           :players="store.state.room.players"
           :self="self"
+          :answer-remaining-ms="store.state.answerRemainingMs"
           @buzz="store.buzz"
+          @answer="store.submitAnswer"
         />
         <q-card flat bordered>
           <q-card-section>

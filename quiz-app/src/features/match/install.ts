@@ -32,6 +32,12 @@ export const installMatch = (app: App): void => {
         timer: createSystemTimer(),
       }),
     join: ({ name, network }) =>
-      createPlayerMatch({ name, network, toRoomView, toPlayerQuestionEvent }),
+      createPlayerMatch({
+        name,
+        network,
+        toRoomView,
+        toPlayerQuestionEvent,
+        timer: createSystemTimer(),
+      }),
   });
 };

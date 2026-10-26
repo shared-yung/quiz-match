@@ -5,8 +5,10 @@
  * （docs/architecture/module-entry.md）。
  */
 export {
+  AnswerState,
   applyPlayerQuestionEvent,
   BuzzRejection,
+  canAnswer,
   canBuzz,
   CloseReason,
   initialPlayerQuestion,

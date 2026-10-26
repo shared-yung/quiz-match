@@ -7,14 +7,18 @@ import {
 } from '@/features/net';
 import {
   applyPlayerQuestionEvent,
+  canAnswer,
   canBuzz,
   initialPlayerQuestion,
   type PlayerQuestion,
   type PlayerQuestionEvent,
   PlayerQuestionEventType,
+  type Timer,
 } from '@/features/quiz';
 import { type PlayerId, playerIdSchema } from '@/shared/identity';
+import { addMs, durationMsSchema, type EpochMs } from '@/shared/time';
 import {
+  answerMessageSchema,
   type HostMessage,
   HostMessageType,
   PlayerMessageType,
@@ -31,6 +35,8 @@ export type PlayerMatchDeps = {
   toRoomView: (message: RoomStateMessage) => RoomView | undefined;
   /** ホストからのメッセージを出題のイベントにする（infrastructure の変換）。出題に関わらなければ `undefined` */
   toPlayerQuestionEvent: (message: HostMessage) => PlayerQuestionEvent | undefined;
+  /** 手元の時計とタイマー。回答の残り時間を数える */
+  timer: Timer;
 };
 
 /** プレイヤーから見た対戦の状態。 */
@@ -41,6 +47,14 @@ export type PlayerMatchState = {
   room: RoomView | undefined;
   /** 今の問題の、自分から見えている進み具合 */
   question: PlayerQuestion;
+  /**
+   * 回答の残り時間。自分が回答できる間だけ持つ。
+   *
+   * **手元の時計で数える。** ホストが知らせる締め切りはホストの時計での時刻で、時計が
+   * ずれていると使えない。採用を受け取ってからルールの制限時間を数える。通信の遅れの分だけ
+   * ホストより長くなるが、判定はホストが自分の時計で行う（docs/spec/p2p-protocol.md）
+   */
+  answerRemainingMs: number | undefined;
 };
 
 export type PlayerMatch = {
@@ -55,6 +69,8 @@ export type PlayerMatch = {
   connect: () => Signaling;
   /** 早押しする。押せないとき（公開中でない・ロックアウト中・結果待ち）は何もしない */
   buzz: () => void;
+  /** 回答を送る。回答できないとき（自分が押していない・送信済み・時間切れ）と空の回答は捨てる */
+  answer: (text: string) => void;
   /** 接続を閉じ、購読をやめる。画面を離れるときに呼ぶ */
   close: () => void;
 };
@@ -70,6 +86,10 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
   const handlers = new Set<(state: PlayerMatchState) => void>();
   let room: RoomView | undefined;
   let question = initialPlayerQuestion();
+  /** 手元の時計での回答の締め切り。自分が回答できる間だけ持つ */
+  let answerDeadline: EpochMs | undefined;
+  /** 次に残り時間を知らせるタイマーを取り消す関数 */
+  let cancelTick: (() => void) | undefined;
 
   const lobby = createPlayerLobby({
     messenger: deps.network.messenger,
@@ -77,7 +97,15 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     name: deps.name,
   });
 
-  const state = (): PlayerMatchState => ({ lobby: lobby.state(), room, question });
+  const answerRemainingMs = (): number | undefined =>
+    answerDeadline == undefined ? undefined : Math.max(0, answerDeadline - deps.timer.now());
+
+  const state = (): PlayerMatchState => ({
+    lobby: lobby.state(),
+    room,
+    question,
+    answerRemainingMs: answerRemainingMs(),
+  });
   const notify = (): void => {
     const current = state();
     handlers.forEach((handler) => handler(current));
@@ -99,11 +127,53 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     return parsed.success ? parsed.data : undefined;
   };
 
+  const stopCountdown = (): void => {
+    cancelTick?.();
+    cancelTick = undefined;
+    answerDeadline = undefined;
+  };
+
+  /** 残り時間を秒の境目ごとに知らせる。残りが無くなったら時間切れにする */
+  const scheduleTick = (): void => {
+    const remaining = answerRemainingMs();
+    if (remaining == undefined) return;
+
+    cancelTick = deps.timer.schedule(durationMsSchema.parse(remaining % 1_000 || 1_000), () => {
+      cancelTick = undefined;
+      if (answerRemainingMs() === 0) {
+        applyQuestion({ type: PlayerQuestionEventType.AnswerTimedOut });
+
+        return;
+      }
+
+      scheduleTick();
+      notify();
+    });
+  };
+
+  /** 回答できるようになったら数え始め、できなくなったらやめる */
+  const syncCountdown = (): void => {
+    if (!canAnswer(question, self())) {
+      stopCountdown();
+
+      return;
+    }
+    // ルールがまだ届いていなければ数えない。時間切れはホストの判定で分かる
+    if (answerDeadline != undefined || room == undefined) return;
+
+    answerDeadline = addMs(
+      deps.timer.now(),
+      durationMsSchema.parse(room.ruleSet.answerTimeLimitMs),
+    );
+    scheduleTick();
+  };
+
   const applyQuestion = (event: PlayerQuestionEvent): void => {
     const next = applyPlayerQuestionEvent(question, event, { self: self() });
     if (next === question) return;
 
     question = next;
+    syncCountdown();
     notify();
   };
 
@@ -142,7 +212,19 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
       deps.network.messenger.send({ type: PlayerMessageType.Buzz });
       applyQuestion({ type: PlayerQuestionEventType.BuzzSent });
     },
+    answer: (text) => {
+      // 空や長すぎる回答はホストの検証で捨てられる。送る前に同じスキーマで見る
+      const message = answerMessageSchema.safeParse({ type: PlayerMessageType.Answer, text });
+      if (!message.success) return;
+      if (lobby.state().status !== PlayerLobbyStatus.Joined || !canAnswer(question, self())) {
+        return;
+      }
+
+      deps.network.messenger.send(message.data);
+      applyQuestion({ type: PlayerQuestionEventType.AnswerSent });
+    },
     close: () => {
+      stopCountdown();
       unsubscribeLobby();
       unsubscribeMessages();
       lobby.dispose();

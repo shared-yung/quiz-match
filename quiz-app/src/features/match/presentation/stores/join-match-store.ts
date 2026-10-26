@@ -55,6 +55,9 @@ export const useJoinMatchStore = defineStore('joinMatch', () => {
   /** 早押しする。押せないときは対戦の側で捨てる */
   const buzz = (): void => match?.buzz();
 
+  /** クイズの回答を送る（接続用の `answer` とは別）。送れないものは対戦の側で捨てる */
+  const submitAnswer = (text: string): void => match?.answer(text);
+
   /** 画面を離れるときに呼ぶ。接続を閉じ、最初の状態に戻す */
   const close = (): void => {
     unsubscribe?.();
@@ -67,5 +70,15 @@ export const useJoinMatchStore = defineStore('joinMatch', () => {
     answerFailed.value = false;
   };
 
-  return { state, answer, preparingAnswer, answerFailed, start, createAnswer, buzz, close };
+  return {
+    state,
+    answer,
+    preparingAnswer,
+    answerFailed,
+    start,
+    createAnswer,
+    buzz,
+    submitAnswer,
+    close,
+  };
 });

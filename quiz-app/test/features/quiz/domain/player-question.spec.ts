@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BuzzRejection } from '@/features/quiz/domain/question-notifier';
 import {
+  AnswerState,
   applyPlayerQuestionEvent,
+  canAnswer,
   canBuzz,
   initialPlayerQuestion,
   type PlayerQuestion,
@@ -110,6 +112,7 @@ describe('applyPlayerQuestionEvent', () => {
       lockedOut: false,
       buzzer: me,
       answerDeadline: deadline,
+      answerState: AnswerState.Open,
     });
     expect(canBuzz(state)).toBe(false);
   });
@@ -176,5 +179,43 @@ describe('applyPlayerQuestionEvent', () => {
 
   it('公開中でないときの押下の送信は何も変えない', () => {
     expect(play(buzzSent)).toEqual(initialPlayerQuestion());
+  });
+
+  it('自分が採用されたら回答でき、他人が採用されたら回答できない', () => {
+    expect(canAnswer(play(started, buzzSent, accepted()), me)).toBe(true);
+    expect(canAnswer(play(started, accepted(other)), me)).toBe(false);
+  });
+
+  it('回答を送ったら送信済みになり、もう回答できない', () => {
+    const state = play(started, accepted(), { type: PlayerQuestionEventType.AnswerSent });
+
+    expect(state).toMatchObject({ answerState: AnswerState.Sent });
+    expect(canAnswer(state, me)).toBe(false);
+  });
+
+  it('時間切れになったら、もう回答できない', () => {
+    const state = play(started, accepted(), { type: PlayerQuestionEventType.AnswerTimedOut });
+
+    expect(state).toMatchObject({ answerState: AnswerState.TimedOut });
+    expect(canAnswer(state, me)).toBe(false);
+  });
+
+  it('送った後の時間切れは、送信済みのまま', () => {
+    expect(
+      play(
+        started,
+        accepted(),
+        { type: PlayerQuestionEventType.AnswerSent },
+        { type: PlayerQuestionEventType.AnswerTimedOut },
+      ),
+    ).toMatchObject({ answerState: AnswerState.Sent });
+  });
+
+  it('押した後でないときの回答の送信は何も変えない', () => {
+    const state = play(started);
+
+    expect(
+      applyPlayerQuestionEvent(state, { type: PlayerQuestionEventType.AnswerSent }, { self: me }),
+    ).toBe(state);
   });
 });
