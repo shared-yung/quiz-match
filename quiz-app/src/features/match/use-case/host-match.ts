@@ -25,6 +25,7 @@ import {
   type WrongAnswerChoice,
 } from '@/features/quiz';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
+import { createLifetime } from '@/shared/lifetime';
 import {
   catchUpMessages,
   PlayerMessageType,
@@ -120,6 +121,18 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
   let winners: readonly PlayerId[] | undefined;
   const registry = createPeerRegistry();
 
+  /**
+   * 対戦の寿命。後始末は登録の逆順に行うので、通信を閉じるのは最後になる
+   * （購読をやめ、出題とロビーを止めてから閉じる）
+   */
+  const lifetime = createLifetime();
+  lifetime.defer(deps.network.close);
+  lifetime.defer(() => {
+    roomHandlers.clear();
+    questionHandlers.clear();
+    standingsHandlers.clear();
+  });
+
   /** room/state に載せる今の状態。出題が始まる前の参加でも呼ばれるので関数にする */
   const toRoomState = (room: Room): RoomStateMessage =>
     deps.toRoomState(room, quiz.state(), quiz.scores());
@@ -187,6 +200,7 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
       },
     },
   });
+  lifetime.defer(quiz.dispose);
 
   const lobby = createHostLobby({
     messenger: deps.network.messenger,
@@ -198,29 +212,32 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
       catchUpMessages(toRoomState(session.room()), deps.toQuestionProgress(quiz.state())),
     generateRejoinToken: deps.generateRejoinToken,
   });
+  lifetime.defer(lobby.dispose);
 
   // 名乗り（join / rejoin）はロビーが受け持つ。ここでは参加者に結ばれた接続からの出題の操作だけを渡す
-  const unsubscribeQuestion = deps.network.messenger.onMessage((peerId, message) => {
-    const playerId = registry.playerOf(peerId);
-    if (playerId == undefined) return;
+  lifetime.defer(
+    deps.network.messenger.onMessage((peerId, message) => {
+      const playerId = registry.playerOf(peerId);
+      if (playerId == undefined) return;
 
-    switch (message.type) {
-      case PlayerMessageType.Buzz:
-        quiz.buzz(playerId);
+      switch (message.type) {
+        case PlayerMessageType.Buzz:
+          quiz.buzz(playerId);
 
-        return;
-      case PlayerMessageType.Answer:
-        quiz.submitAnswer(playerId, message.text);
+          return;
+        case PlayerMessageType.Answer:
+          quiz.submitAnswer(playerId, message.text);
 
-        return;
-      // 名乗りはロビーが受け持つ
-      case PlayerMessageType.Join:
-      case PlayerMessageType.Rejoin:
-        return;
-      default:
-        throw new ExhaustiveError(message);
-    }
-  });
+          return;
+        // 名乗りはロビーが受け持つ
+        case PlayerMessageType.Join:
+        case PlayerMessageType.Rejoin:
+          return;
+        default:
+          throw new ExhaustiveError(message);
+      }
+    }),
+  );
 
   return {
     room: session.room,
@@ -250,14 +267,6 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
     resumeReveal: quiz.resumeReveal,
     judge: quiz.judge,
     nextQuestion: quiz.nextQuestion,
-    close: () => {
-      unsubscribeQuestion();
-      quiz.dispose();
-      lobby.dispose();
-      roomHandlers.clear();
-      questionHandlers.clear();
-      standingsHandlers.clear();
-      deps.network.close();
-    },
+    close: lifetime.dispose,
   };
 };

@@ -167,6 +167,17 @@ describe('HostMatch', () => {
   });
 });
 
+describe('HostMatch の close', () => {
+  it('2回目の close は何もしない', () => {
+    const { match, network } = setup();
+
+    match.close();
+    match.close();
+
+    expect(network.closeCount).toBe(1);
+  });
+});
+
 describe('HostMatch の出題', () => {
   /** 公開間隔（ruleSet の既定値） */
   const interval = ruleSet.revealIntervalMs;

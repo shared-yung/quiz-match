@@ -24,6 +24,8 @@ export type FakeHostNetwork = HostNetwork & {
   setConnectionState: (peerId: PeerId, state: ConnectionState) => void;
   /** `close` を呼ばれたか */
   readonly closed: boolean;
+  /** `close` を呼ばれた回数 */
+  readonly closeCount: number;
 };
 
 export const createFakeHostNetwork = (): FakeHostNetwork => {
@@ -34,6 +36,7 @@ export const createFakeHostNetwork = (): FakeHostNetwork => {
   const states = new Map<PeerId, ConnectionState>();
   let invited = 0;
   let closed = false;
+  let closeCount = 0;
 
   return {
     invite: () => {
@@ -67,9 +70,13 @@ export const createFakeHostNetwork = (): FakeHostNetwork => {
     },
     close: () => {
       closed = true;
+      closeCount += 1;
     },
     get closed() {
       return closed;
+    },
+    get closeCount() {
+      return closeCount;
     },
     sentTo: (peerId) => sent.filter((s) => s.peerId === peerId).map((s) => s.message),
     broadcasted,

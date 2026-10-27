@@ -5,6 +5,7 @@ import { ExhaustiveError } from '@/shared/exhaustive-error';
 import type { MessageKey } from '@/shared/i18n';
 import { type PlayerId, playerIdSchema } from '@/shared/identity';
 import { HostMessageType } from '@/shared/protocol';
+import { createLifetime } from '@/shared/lifetime';
 import { generateRandomId } from '@/shared/random-id';
 import { useNetworking } from './use-networking';
 
@@ -46,13 +47,18 @@ export const useHostNetDebug = () => {
   const broadcastText = ref('');
   let position = 0;
 
-  onScopeDispose(
+  /** 画面の寿命。後始末は登録の逆順に行うので、通信を閉じるのは最後になる */
+  const lifetime = createLifetime();
+  lifetime.defer(host.close);
+  onScopeDispose(lifetime.dispose);
+
+  lifetime.defer(
     host.transport.onConnectionStateChanged((peerId, state) => {
       const slot = slots.value.find((s) => s.peerId === peerId);
       if (slot != undefined) slot.state = state;
     }),
   );
-  onScopeDispose(
+  lifetime.defer(
     host.messenger.onMessage((peerId, message) => {
       received.value.push(`${peerId}: ${JSON.stringify(message)}`);
     }),
@@ -72,16 +78,13 @@ export const useHostNetDebug = () => {
     catchUp: () => [],
     generateRejoinToken: generateRandomId,
   });
-  onScopeDispose(
+  lifetime.defer(lobby.dispose);
+  lifetime.defer(
     lobby.onPresenceChanged((playerId, presence) => {
       const member = members.value.find((m) => m.playerId === playerId);
       if (member != undefined) member.presence = presence;
     }),
   );
-  onScopeDispose(() => {
-    lobby.dispose();
-    host.close();
-  });
 
   const invite = async (): Promise<void> => {
     const { peerId, signaling } = host.invite();
