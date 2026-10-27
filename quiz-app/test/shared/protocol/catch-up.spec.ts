@@ -68,4 +68,19 @@ describe('catchUpMessages', () => {
       { type: HostMessageType.QuestionChar, position: 1, char: '野' },
     ]);
   });
+
+  it('決着していれば、room/state に続けて今の得点と勝者の game/end を送る', () => {
+    const state = roomState(Phase.Closed);
+
+    expect(catchUpMessages(state, undefined, ['p1'])).toEqual([
+      state,
+      { type: HostMessageType.GameEnd, scores: state.scores, winnerIds: ['p1'] },
+    ]);
+  });
+
+  it('決着していなければ game/end を送らない', () => {
+    const state = roomState(Phase.Closed);
+
+    expect(catchUpMessages(state, undefined, undefined)).toEqual([state]);
+  });
 });

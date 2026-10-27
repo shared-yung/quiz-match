@@ -403,4 +403,20 @@ describe('PlayerMatch の順位表', () => {
       winners: ['p1'],
     });
   });
+
+  it('決着の後に入ったときに送り直される room/state と game/end で、得点と勝者を持つ', () => {
+    const { match, network } = setup({ toRoomView: () => view });
+
+    network.receive({ ...roomState, scores: [{ playerId: 'p1', points: 5 }], phase: Phase.Closed });
+    network.receive({
+      type: HostMessageType.GameEnd,
+      scores: [{ playerId: 'p1', points: 5 }],
+      winnerIds: ['p1'],
+    });
+
+    expect(match.state().standings).toEqual({
+      points: [{ playerId: 'p1', points: 5 }],
+      winners: ['p1'],
+    });
+  });
 });

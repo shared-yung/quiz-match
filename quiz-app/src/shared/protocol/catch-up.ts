@@ -4,6 +4,7 @@ import {
   type HostMessage,
   type RoomStateMessage,
 } from './host-message';
+import type { PlayerRef } from './common';
 
 /** 出題中の問題の、全員に公開済みの部分。 */
 export type QuestionProgress = {
@@ -18,18 +19,26 @@ export type QuestionProgress = {
  * 途中から入ったプレイヤーに、他の全員が既に受け取ったものを送り直すメッセージ。
  *
  * 送るのは `room/state` と、出題中なら `question/start` と公開済みの `question/char`、
- * 一時停止中ならその後に `question/reveal-stop`（`manual`）。
+ * 一時停止中ならその後に `question/reveal-stop`（`manual`）。決着していれば最後に `game/end`。
  * **新しいメッセージを作らず、既存のものを同じ順で並べる。** プレイヤー側は最初から
  * 居た場合と同じ処理で追いつける。公開済みの文字しか送らないので、1文字ずつ公開する
  * 意味は崩れない（docs/spec/p2p-protocol.md の「再参加と途中参加」）。
  *
  * `question` は出題中（`revealing` / `buzzed` / `judging`）のときだけ渡す。
+ * `winnerIds` は勝利条件を満たした後だけ渡す。得点は `room/state` と同じものを載せる。
  */
 export const catchUpMessages = (
   roomState: RoomStateMessage,
   question: QuestionProgress | undefined,
+  winnerIds: readonly PlayerRef[] | undefined = undefined,
 ): HostMessage[] => {
-  if (question == undefined) return [roomState];
+  // 決着の後に入った人にも勝者が分かるようにする。得点は room/state のもので足りる
+  const gameEnd: HostMessage[] =
+    winnerIds == undefined
+      ? []
+      : [{ type: HostMessageType.GameEnd, scores: roomState.scores, winnerIds: [...winnerIds] }];
+
+  if (question == undefined) return [roomState, ...gameEnd];
 
   // 1文字はコードポイント単位（revealedCharSchema と同じ数え方）
   const chars = [...question.revealedText].map((char, position): HostMessage => ({
@@ -48,5 +57,6 @@ export const catchUpMessages = (
     { type: HostMessageType.QuestionStart, questionIndex: question.questionIndex },
     ...chars,
     ...stop,
+    ...gameEnd,
   ];
 };
