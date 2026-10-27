@@ -471,6 +471,23 @@ describe('HostMatch の順位表', () => {
     });
   });
 
+  it('決着の後に再参加した本人にも、勝者の game/end を送る', () => {
+    const firstToOne = ruleSetSchema.parse({
+      winCondition: { type: WinConditionType.FirstTo, points: 1 },
+    });
+    const { match, network, first } = answered({ ruleSet: firstToOne });
+    match.judge(true);
+    const { peerId } = match.invite();
+
+    // 2人目（token-2）が切れて、新しい接続で戻ってきた
+    network.receive(peerId, { type: PlayerMessageType.Rejoin, token: 'token-2' });
+
+    expect(network.sentTo(peerId).at(-1)).toMatchObject({
+      type: HostMessageType.GameEnd,
+      winnerIds: [first],
+    });
+  });
+
   it('決着の前に参加した本人には game/end を送らない', () => {
     const { match, network } = answered();
     const { peerId } = match.invite();

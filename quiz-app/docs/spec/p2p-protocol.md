@@ -59,7 +59,7 @@
 
 **参加・再参加を受け付けたら、本人に途中経過を送り直す。** `join/accepted` に続けて、`room/state` と、出題中（`revealing` / `buzzed` / `judging`）なら `question/start` と公開済みの `question/char` を位置の順に送る。一時停止中なら `question/reveal-stop`（`manual`）を足す。勝利条件を満たした後なら、最後に `game/end`（今の得点と勝者）を足す。最初から居た人が受け取ったのと同じメッセージを同じ順で並べるだけで、専用のメッセージは無い。公開済みの文字しか送らないので、1文字ずつ公開する意味は崩れない。
 
-早押しの採用（`buzz/accepted`）や、`closed` の後の正解文（`question/end`）は送り直さない。状態は `room/state` の `phase` で分かる。 ただし勝者は `room/state` に載らないので、決着の後は `game/end` を送り直す。決着の後に入った人だけ勝者が分からず、ホストと画面が食い違うのを防ぐ。
+早押しの採用（`buzz/accepted`）や、`closed` の後の正解文（`question/end`）は送り直さない。状態は `room/state` の `phase` で分かる。ただし勝者は `room/state` に載らないので、決着の後は `game/end` を送り直す。決着の後に入った人だけ勝者が分からず、ホストと画面が食い違うのを防ぐ。
 
 1つの接続で名乗れるのは1回だけ。既にプレイヤーに結ばれた接続からの `join` / `rejoin` は破棄する。
 
