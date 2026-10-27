@@ -69,13 +69,23 @@ presentation にカバレッジ閾値を課すと、数字を満たすためだ�
 
 ## コマンド
 
-| コマンド                | 内容                               |
-| ----------------------- | ---------------------------------- |
-| `bun run test`          | 全 project を1回実行（CI と同じ）  |
-| `bun run test:watch`    | 監視モード                         |
-| `bun run test:coverage` | カバレッジ付き。閾値を割ると落ちる |
+| コマンド                | 内容                                 |
+| ----------------------- | ------------------------------------ |
+| `bun run test`          | 全 project を1回実行（CI と同じ）    |
+| `bun run test:watch`    | 監視モード                           |
+| `bun run test:coverage` | カバレッジ付き。閾値を割ると落ちる   |
+| `bun run test:e2e`      | E2E（Playwright）。`quiz-app` で実行 |
 
 カバレッジは毎回走らせると遅いので `test` からは外している。閾値の確認は `test:coverage` で行う。
+
+## E2E
+
+`quiz-app/e2e/` に置く。主要フローのハッピーパス1本（ルーム作成 → 参加 → 出題 → 早押し → 回答 → 判定）に絞る。
+
+- ホストとプレイヤーは**同じブラウザの別コンテキスト**で再現する。接続の文字列（SDP）は人の代わりにテストが受け渡す
+- 本番と同じビルドを `e2e/serve-dist.ts` で配って確かめる。dev サーバーは起動時にブラウザを開く設定なので使わない
+- Chromium は `--disable-features=WebRtcHideLocalIpsWithMdns` で起動する。既定ではローカルの候補が mDNS 名（`xxx.local`）に隠され、同じマシンの別コンテキストどうしでも WebRTC がつながらないことがある
+- 初回はブラウザを入れる: `bun x playwright install chromium`（`quiz-app` で実行）
 
 ## CI
 
