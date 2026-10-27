@@ -1,18 +1,20 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E（Playwright）。主要フローのハッピーパスだけを置く（docs/tooling/testing.md）。
+ * E2E（Playwright）。主要フローのハッピーパスだけを e2e/ に置く（docs/tooling/testing.md）。
+ * test/ の *.spec.ts は Vitest が拾うので、E2E は *.e2e.ts にして混ざらないようにする。
  *
  * 本番と同じビルドを配って確かめる（e2e/serve-dist.ts）。dev サーバーは起動時にブラウザを開く設定なので使わない。
  */
 const port = 4173;
+const isCi = process.env.CI != undefined;
 
 export default defineConfig({
   testDir: './e2e',
+  testMatch: '**/*.e2e.ts',
   fullyParallel: false,
-  forbidOnly: process.env.CI != undefined,
-  retries: process.env.CI == undefined ? 0 : 1,
-  reporter: process.env.CI == undefined ? 'list' : [['list'], ['html', { open: 'never' }]],
+  forbidOnly: isCi,
+  reporter: isCi ? 'github' : 'list',
   use: {
     baseURL: `http://localhost:${String(port)}`,
     trace: 'retain-on-failure',
@@ -36,7 +38,7 @@ export default defineConfig({
     command: 'bun run build && bun e2e/serve-dist.ts',
     env: { E2E_PORT: String(port) },
     url: `http://localhost:${String(port)}`,
-    reuseExistingServer: process.env.CI == undefined,
+    reuseExistingServer: !isCi,
     timeout: 180_000,
   },
 });

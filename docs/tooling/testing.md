@@ -69,29 +69,32 @@ presentation にカバレッジ閾値を課すと、数字を満たすためだ�
 
 ## コマンド
 
-| コマンド                | 内容                                 |
-| ----------------------- | ------------------------------------ |
-| `bun run test`          | 全 project を1回実行（CI と同じ）    |
-| `bun run test:watch`    | 監視モード                           |
-| `bun run test:coverage` | カバレッジ付き。閾値を割ると落ちる   |
-| `bun run test:e2e`      | E2E（Playwright）。`quiz-app` で実行 |
+| コマンド                | 内容                               |
+| ----------------------- | ---------------------------------- |
+| `bun run test`          | 全 project を1回実行（CI と同じ）  |
+| `bun run test:watch`    | 監視モード                         |
+| `bun run test:coverage` | カバレッジ付き。閾値を割ると落ちる |
+| `bun run test:e2e`      | E2E（Playwright）                  |
 
 カバレッジは毎回走らせると遅いので `test` からは外している。閾値の確認は `test:coverage` で行う。
 
 ## E2E
 
-`quiz-app/e2e/` に置く。主要フローのハッピーパス1本（ルーム作成 → 参加 → 出題 → 早押し → 回答 → 判定）に絞る。
-
+- 設定は `quiz-app/playwright.config.ts`。テストは `quiz-app/e2e/` に `*.e2e.ts` で置く（`test/` の `*.spec.ts` は Vitest が拾うので混ぜない）
+- 対象は**主要フローのハッピーパスだけ**。今はルーム作成 → 参加 → 出題 → 早押し → 回答 → 判定の1本。分岐や異常系は内側の層の単体テストで確かめる。PR のたびに全件を流すので、数分で終わる規模を保つ
 - ホストとプレイヤーは**同じブラウザの別コンテキスト**で再現する。接続の文字列（SDP）は人の代わりにテストが受け渡す
-- 本番と同じビルドを `e2e/serve-dist.ts` で配って確かめる。dev サーバーは起動時にブラウザを開く設定なので使わない
+- 本番と同じビルドを `e2e/serve-dist.ts` で配って確かめる。雛形は dev サーバーを使うが、quiz-app の dev サーバーは起動時にブラウザを開く設定なので使わない。ローカルでは起動済みのサーバーを使い回す
 - Chromium は `--disable-features=WebRtcHideLocalIpsWithMdns` で起動する。既定ではローカルの候補が mDNS 名（`xxx.local`）に隠され、同じマシンの別コンテキストどうしでも WebRTC がつながらないことがある
 - 初回はブラウザを入れる: `bun x playwright install chromium`（`quiz-app` で実行）
+- ローカルでは触った機能に関係する spec だけ流せばよい（`quiz-app` で `bun run test:e2e -- e2e/<spec>.e2e.ts`）。流さなくてもよく、全件は CI に任せる
+- 差分で E2E を選ぶ方式は関門にしない。共有部品の変更による回帰を取りこぼすため
+- 遅くなったら、まず shard で並列化する。それでも足りなければ `@smoke` タグを付けたものだけを PR の必須チェックにし、全件は main に対して夜間に流す
 
 ## CI
 
-- PR: typecheck + lint + ユニットテスト（`CI` ワークフロー）
-- main へのマージ時: E2E（`E2E` ワークフロー、`.github/workflows/e2e.yml`）。PR では走らせず、PR の実行時間を伸ばさない。手動でも実行できる（workflow_dispatch）
-- E2E が失敗したら、`main の E2E が失敗している` という issue を立てて知らせる。開いたままなら同じ issue にコメントを足す（`scripts/notify-e2e-failure.sh`）。レポートは実行の Artifacts（`playwright-report`）に残る
+- PR: typecheck + lint + ユニットテスト（`unit` ジョブ）と E2E（`e2e` ジョブ）を並列に流す（`.github/workflows/ci.yml`）
+- 必須チェックは `check` ジョブ。`unit` と `e2e` の両方が通ったときだけ通る。E2E も main に入る前に通す（TEST-05）
+- E2E が落ちたら、`quiz-app/test-results/` の trace を artifact（`playwright-test-results`）から取れる
 
 ## 判断の目安
 
