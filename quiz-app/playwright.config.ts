@@ -14,6 +14,9 @@ export default defineConfig({
   testMatch: '**/*.e2e.ts',
   fullyParallel: false,
   forbidOnly: isCi,
+  // 必須チェックなので、WebRTC の一時的な接続失敗だけでマージを止めないよう CI では1回だけ再試行する。
+  // 再試行で通ったものは flaky として結果に残る（雛形には無い。docs/tooling/testing.md）
+  retries: isCi ? 1 : 0,
   reporter: isCi ? 'github' : 'list',
   use: {
     baseURL: `http://localhost:${String(port)}`,
