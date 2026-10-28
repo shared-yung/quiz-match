@@ -195,7 +195,8 @@ export const createHostMatch = (deps: HostMatchDeps): HostMatch => {
     admit: session.join,
     isMember: (playerId) => hasPlayer(session.room(), playerId),
     catchUp: () =>
-      catchUpMessages(toRoomState(session.room()), deps.toQuestionProgress(quiz.state())),
+      // 決着していれば勝者も送り直す。決着の後に入った人にも勝者が分かる
+      catchUpMessages(toRoomState(session.room()), deps.toQuestionProgress(quiz.state()), winners),
     generateRejoinToken: deps.generateRejoinToken,
   });
 
