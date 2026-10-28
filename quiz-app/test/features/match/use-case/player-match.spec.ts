@@ -178,6 +178,17 @@ describe('PlayerMatch', () => {
   });
 });
 
+describe('PlayerMatch の close', () => {
+  it('2回目の close は何もしない', () => {
+    const { match, network } = setup();
+
+    match.close();
+    match.close();
+
+    expect(network.closeCount).toBe(1);
+  });
+});
+
 describe('PlayerMatch の出題', () => {
   const start: HostMessage = { type: HostMessageType.QuestionStart, questionIndex: 0 };
 

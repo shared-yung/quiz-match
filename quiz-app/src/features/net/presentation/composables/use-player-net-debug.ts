@@ -8,6 +8,7 @@ import {
 } from '@/features/net/use-case';
 import { ExhaustiveError } from '@/shared/exhaustive-error';
 import type { MessageKey } from '@/shared/i18n';
+import { createLifetime } from '@/shared/lifetime';
 import { PlayerMessageType } from '@/shared/protocol';
 import { useNetworking } from './use-networking';
 
@@ -50,21 +51,22 @@ export const usePlayerNetDebug = () => {
   const received = ref<string[]>([]);
   let lobby: PlayerLobby | undefined;
 
+  /** 画面の寿命。後始末は登録の逆順に行うので、通信を閉じるのは最後になる */
+  const lifetime = createLifetime();
+  lifetime.defer(player.close);
+  onScopeDispose(lifetime.dispose);
+
   // 相手はホスト1人だけなので、どの PeerId の変化かは見なくてよい
-  onScopeDispose(
+  lifetime.defer(
     player.transport.onConnectionStateChanged((_peerId, next) => {
       state.value = next;
     }),
   );
-  onScopeDispose(
+  lifetime.defer(
     player.messenger.onMessage((message) => {
       received.value.push(JSON.stringify(message));
     }),
   );
-  onScopeDispose(() => {
-    lobby?.dispose();
-    player.close();
-  });
 
   /** 表示名が決まるのは最初の Offer を受けるときなので、ロビーはそこで作る */
   const ensureLobby = (): void => {
@@ -75,9 +77,12 @@ export const usePlayerNetDebug = () => {
       transport: player.transport,
       name: name.value,
     });
-    lobby.onStateChanged((next) => {
-      lobbyState.value = next;
-    });
+    lifetime.defer(lobby.dispose);
+    lifetime.defer(
+      lobby.onStateChanged((next) => {
+        lobbyState.value = next;
+      }),
+    );
   };
 
   /** 最初の接続でも、切れた後の張り直しでも、新しい接続で Offer を受ける */

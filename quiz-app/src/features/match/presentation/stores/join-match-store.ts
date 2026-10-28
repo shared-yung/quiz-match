@@ -3,6 +3,7 @@ import { shallowRef, ref } from 'vue';
 import type { PlayerMatch, PlayerMatchState } from '@/features/match/use-case';
 import { useNetworking } from '@/features/net';
 import { useMatchmaking } from '@/features/match/presentation/composables/use-matchmaking';
+import { createLifetime, type Lifetime } from '@/shared/lifetime';
 
 /**
  * プレイヤーの参加画面の状態。対戦（`PlayerMatch`）に参加し、その状態を写して持つ。
@@ -15,7 +16,8 @@ export const useJoinMatchStore = defineStore('joinMatch', () => {
   const matchmaking = useMatchmaking();
 
   let match: PlayerMatch | undefined;
-  let unsubscribe: (() => void) | undefined;
+  /** 参加した対戦の寿命。対戦と購読はここに登録し、`close` でまとめて止める */
+  let lifetime: Lifetime | undefined;
 
   /** 参加を始めたら `undefined` でなくなる */
   const state = shallowRef<PlayerMatchState | undefined>();
@@ -29,10 +31,15 @@ export const useJoinMatchStore = defineStore('joinMatch', () => {
 
     const started = matchmaking.join({ name, network: networking.openPlayer() });
     match = started;
+    lifetime = createLifetime();
+    // 逆順に止まるので、対戦を閉じるのは購読をやめた後になる
+    lifetime.defer(started.close);
     state.value = started.state();
-    unsubscribe = started.onStateChanged((next) => {
-      state.value = next;
-    });
+    lifetime.defer(
+      started.onStateChanged((next) => {
+        state.value = next;
+      }),
+    );
   };
 
   /** 最初の接続でも、切れた後に招待し直してもらったときでも、新しい接続で offer を受ける */
@@ -60,14 +67,17 @@ export const useJoinMatchStore = defineStore('joinMatch', () => {
 
   /** 画面を離れるときに呼ぶ。接続を閉じ、最初の状態に戻す */
   const close = (): void => {
-    unsubscribe?.();
-    unsubscribe = undefined;
-    match?.close();
-    match = undefined;
-    state.value = undefined;
-    answer.value = undefined;
-    preparingAnswer.value = false;
-    answerFailed.value = false;
+    try {
+      lifetime?.dispose();
+    } finally {
+      // 後始末の例外は呼び出し側に返すが、画面は必ず最初の状態に戻す
+      lifetime = undefined;
+      match = undefined;
+      state.value = undefined;
+      answer.value = undefined;
+      preparingAnswer.value = false;
+      answerFailed.value = false;
+    }
   };
 
   return {

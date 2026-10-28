@@ -16,6 +16,7 @@ import {
   type Timer,
 } from '@/features/quiz';
 import { type PlayerId, playerIdSchema } from '@/shared/identity';
+import { createLifetime } from '@/shared/lifetime';
 import { addMs, durationMsSchema, type EpochMs } from '@/shared/time';
 import {
   answerMessageSchema,
@@ -87,6 +88,14 @@ export type PlayerMatch = {
  */
 export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
   const handlers = new Set<(state: PlayerMatchState) => void>();
+
+  /**
+   * 対戦の寿命。後始末は登録の逆順に行うので、通信を閉じるのは最後になる
+   * （購読と残り時間のタイマーを止め、ロビーを止めてから閉じる）
+   */
+  const lifetime = createLifetime();
+  lifetime.defer(deps.network.close);
+  lifetime.defer(() => handlers.clear());
   let room: RoomView | undefined;
   let question = initialPlayerQuestion();
   let standings: Standings = { points: [], winners: undefined };
@@ -100,6 +109,7 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     transport: deps.network.transport,
     name: deps.name,
   });
+  lifetime.defer(lobby.dispose);
 
   const answerRemainingMs = (): number | undefined =>
     answerDeadline == undefined ? undefined : Math.max(0, answerDeadline - deps.timer.now());
@@ -137,6 +147,7 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     cancelTick = undefined;
     answerDeadline = undefined;
   };
+  lifetime.defer(stopCountdown);
 
   /** 残り時間を秒の境目ごとに知らせる。残りが無くなったら時間切れにする */
   const scheduleTick = (): void => {
@@ -182,38 +193,40 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
     notify();
   };
 
-  const unsubscribeLobby = lobby.onStateChanged(notify);
+  lifetime.defer(lobby.onStateChanged(notify));
 
-  const unsubscribeMessages = deps.network.messenger.onMessage((message) => {
-    const event = deps.toPlayerQuestionEvent(message);
-    if (event != undefined) {
-      applyQuestion(event);
+  lifetime.defer(
+    deps.network.messenger.onMessage((message) => {
+      const event = deps.toPlayerQuestionEvent(message);
+      if (event != undefined) {
+        applyQuestion(event);
 
-      return;
-    }
-    if (message.type === HostMessageType.ScoreUpdate) {
+        return;
+      }
+      if (message.type === HostMessageType.ScoreUpdate) {
+        standings = { ...standings, points: message.scores };
+        notify();
+
+        return;
+      }
+      if (message.type === HostMessageType.GameEnd) {
+        standings = { points: message.scores, winners: message.winnerIds };
+        notify();
+
+        return;
+      }
+      if (message.type !== HostMessageType.RoomState) return;
+
+      // ホストの実装や版の違いで読めないものは捨て、前の様子のまま待つ
+      const next = deps.toRoomView(message);
+      if (next == undefined) return;
+
+      room = next;
+      // 途中から入っても今の得点が分かるよう、room/state の得点も写す
       standings = { ...standings, points: message.scores };
       notify();
-
-      return;
-    }
-    if (message.type === HostMessageType.GameEnd) {
-      standings = { points: message.scores, winners: message.winnerIds };
-      notify();
-
-      return;
-    }
-    if (message.type !== HostMessageType.RoomState) return;
-
-    // ホストの実装や版の違いで読めないものは捨て、前の様子のまま待つ
-    const next = deps.toRoomView(message);
-    if (next == undefined) return;
-
-    room = next;
-    // 途中から入っても今の得点が分かるよう、room/state の得点も写す
-    standings = { ...standings, points: message.scores };
-    notify();
-  });
+    }),
+  );
 
   return {
     state,
@@ -242,13 +255,6 @@ export const createPlayerMatch = (deps: PlayerMatchDeps): PlayerMatch => {
       deps.network.messenger.send(message.data);
       applyQuestion({ type: PlayerQuestionEventType.AnswerSent });
     },
-    close: () => {
-      stopCountdown();
-      unsubscribeLobby();
-      unsubscribeMessages();
-      lobby.dispose();
-      handlers.clear();
-      deps.network.close();
-    },
+    close: lifetime.dispose,
   };
 };
