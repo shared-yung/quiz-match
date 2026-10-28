@@ -12,4 +12,7 @@
  *   readonly MY_OTHER_VAR: string;
  * }
  */
-interface ImportMetaEnv {}
+interface ImportMetaEnv {
+  /** WebRTC の STUN サーバー（カンマ区切り）。空なら STUN を使わない（quasar.config.ts の defineEnv） */
+  readonly QUIZ_STUN_URLS: string;
+}
