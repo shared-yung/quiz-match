@@ -178,6 +178,17 @@ describe('PlayerMatch', () => {
   });
 });
 
+describe('PlayerMatch の close', () => {
+  it('2回目の close は何もしない', () => {
+    const { match, network } = setup();
+
+    match.close();
+    match.close();
+
+    expect(network.closeCount).toBe(1);
+  });
+});
+
 describe('PlayerMatch の出題', () => {
   const start: HostMessage = { type: HostMessageType.QuestionStart, questionIndex: 0 };
 
@@ -392,6 +403,22 @@ describe('PlayerMatch の順位表', () => {
   it('game/end で最終得点と勝者を持つ', () => {
     const { match, network } = setup();
 
+    network.receive({
+      type: HostMessageType.GameEnd,
+      scores: [{ playerId: 'p1', points: 5 }],
+      winnerIds: ['p1'],
+    });
+
+    expect(match.state().standings).toEqual({
+      points: [{ playerId: 'p1', points: 5 }],
+      winners: ['p1'],
+    });
+  });
+
+  it('決着の後に入ったときに送り直される room/state と game/end で、得点と勝者を持つ', () => {
+    const { match, network } = setup({ toRoomView: () => view });
+
+    network.receive({ ...roomState, scores: [{ playerId: 'p1', points: 5 }], phase: Phase.Closed });
     network.receive({
       type: HostMessageType.GameEnd,
       scores: [{ playerId: 'p1', points: 5 }],

@@ -13,6 +13,8 @@ export type FakePlayerNetwork = PlayerNetwork & {
   setConnectionState: (state: ConnectionState) => void;
   readonly connectCount: number;
   readonly closed: boolean;
+  /** `close` を呼ばれた回数 */
+  readonly closeCount: number;
 };
 
 /** プレイヤーの相手はホストだけ。PeerId は何でもよい */
@@ -25,6 +27,7 @@ export const createFakePlayerNetwork = (): FakePlayerNetwork => {
   let state: ConnectionState = ConnectionState.Connecting;
   let connectCount = 0;
   let closed = false;
+  let closeCount = 0;
 
   return {
     connect: () => {
@@ -55,6 +58,7 @@ export const createFakePlayerNetwork = (): FakePlayerNetwork => {
     },
     close: () => {
       closed = true;
+      closeCount += 1;
     },
     sent,
     receive: (message) => {
@@ -69,6 +73,9 @@ export const createFakePlayerNetwork = (): FakePlayerNetwork => {
     },
     get closed() {
       return closed;
+    },
+    get closeCount() {
+      return closeCount;
     },
   };
 };
