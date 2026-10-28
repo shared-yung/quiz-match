@@ -429,7 +429,7 @@ describe('HostMatch の順位表', () => {
     network.receive(firstPeer, { type: PlayerMessageType.Buzz });
     network.receive(firstPeer, { type: PlayerMessageType.Answer, text: 'クイズ' });
 
-    return { match, first: first.id, second: second.id };
+    return { match, network, first: first.id, second: second.id };
   };
 
   it('始めは参加者全員が 0 点で、勝者は居ない', () => {
@@ -464,6 +464,50 @@ describe('HostMatch の順位表', () => {
     match.judge(true);
 
     expect(match.standings().winners).toEqual([first]);
+  });
+
+  it('決着の後に参加した本人には、room/state に続けて勝者の game/end を送る', () => {
+    const firstToOne = ruleSetSchema.parse({
+      winCondition: { type: WinConditionType.FirstTo, points: 1 },
+    });
+    const { match, network, first } = answered({ ruleSet: firstToOne });
+    match.judge(true);
+    const { peerId } = match.invite();
+
+    network.receive(peerId, { type: PlayerMessageType.Join, name: '遅れて来た人' });
+
+    expect(network.sentTo(peerId).at(-1)).toMatchObject({
+      type: HostMessageType.GameEnd,
+      winnerIds: [first],
+    });
+  });
+
+  it('決着の後に再参加した本人にも、勝者の game/end を送る', () => {
+    const firstToOne = ruleSetSchema.parse({
+      winCondition: { type: WinConditionType.FirstTo, points: 1 },
+    });
+    const { match, network, first } = answered({ ruleSet: firstToOne });
+    match.judge(true);
+    const { peerId } = match.invite();
+
+    // 2人目（token-2）が切れて、新しい接続で戻ってきた
+    network.receive(peerId, { type: PlayerMessageType.Rejoin, token: 'token-2' });
+
+    expect(network.sentTo(peerId).at(-1)).toMatchObject({
+      type: HostMessageType.GameEnd,
+      winnerIds: [first],
+    });
+  });
+
+  it('決着の前に参加した本人には game/end を送らない', () => {
+    const { match, network } = answered();
+    const { peerId } = match.invite();
+
+    network.receive(peerId, { type: PlayerMessageType.Join, name: '途中から来た人' });
+
+    expect(network.sentTo(peerId).map((message) => message.type)).not.toContain(
+      HostMessageType.GameEnd,
+    );
   });
 });
 
