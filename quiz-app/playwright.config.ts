@@ -39,7 +39,9 @@ export default defineConfig({
   ],
   webServer: {
     command: 'bun run build && bun e2e/serve-dist.ts',
-    env: { E2E_PORT: String(port) },
+    // STUN を使わないビルドにする（quasar.config.ts の defineEnv）。ホストとプレイヤーは同じマシンに
+    // いるので要らず、CI から外部の STUN サーバーへの問い合わせを待つと offer の作成が間に合わない
+    env: { E2E_PORT: String(port), QUIZ_STUN_URLS: '' },
     url: `http://localhost:${String(port)}`,
     reuseExistingServer: !isCi,
     timeout: 180_000,

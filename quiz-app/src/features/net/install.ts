@@ -17,10 +17,16 @@ import { generateRandomId } from '@/shared/random-id';
  * 実装を差し替えるときも boot は触らない。
  */
 export const installNet = (app: App): void => {
+  // STUN サーバーはビルド時に決める（quasar.config.ts の defineEnv）。空なら STUN を使わず、
+  // 同じネットワーク内の候補だけで接続する
+  const stunUrls = import.meta.env.QUIZ_STUN_URLS.split(',')
+    .map((url) => url.trim())
+    .filter((url) => url !== '');
+  const iceServers: RTCIceServer[] = stunUrls.length === 0 ? [] : [{ urls: stunUrls }];
+
   const createSignaling: CreateSignaling = ({ onDataChannel }) =>
     createWebrtcManualSignaling({
-      createPeerConnection: () =>
-        new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }),
+      createPeerConnection: () => new RTCPeerConnection({ iceServers }),
       onDataChannel,
     });
 

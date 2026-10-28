@@ -51,7 +51,12 @@ export default defineConfig((/* ctx */) => {
 
       // publicPath: '/',
       // define: {},
-      // defineEnv: {}
+      // ビルド時に決める値。client では import.meta.env.* で読む
+      defineEnv: {
+        // WebRTC の STUN サーバー（カンマ区切り）。空にすると STUN を使わない。
+        // E2E はホストとプレイヤーが同じマシンにいるので要らず、外部のサービスに頼らないよう空にする
+        QUIZ_STUN_URLS: process.env['QUIZ_STUN_URLS'] ?? 'stun:stun.l.google.com:19302',
+      },
       // ignorePublicFolder: true,
       // minify: false,
       // distDir

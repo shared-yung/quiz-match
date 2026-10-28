@@ -85,6 +85,7 @@ presentation にカバレッジ閾値を課すと、数字を満たすためだ�
 - ホストとプレイヤーは**同じブラウザの別コンテキスト**で再現する。接続の文字列（SDP）は人の代わりにテストが受け渡す
 - 本番と同じビルドを `e2e/serve-dist.ts` で配って確かめる。雛形は dev サーバーを使うが、quiz-app の dev サーバーは起動時にブラウザを開く設定なので使わない。ローカルでは起動済みのサーバーを使い回す
 - Chromium は `--disable-features=WebRtcHideLocalIpsWithMdns` で起動する。既定ではローカルの候補が mDNS 名（`xxx.local`）に隠され、同じマシンの別コンテキストどうしでも WebRTC がつながらないことがある
+- E2E のビルドでは STUN サーバーを使わない（`QUIZ_STUN_URLS` を空にする。`quiz-app/quasar.config.ts` の `defineEnv`）。ホストとプレイヤーは同じマシンにいるので要らず、外部のサービスに頼ると結果が環境で変わる。GitHub Actions では Google の STUN への問い合わせを待つ間に offer の作成が間に合わず、落ちた（2026-10-28）
 - CI では1回だけ再試行する（雛形には無い）。E2E は WebRTC の接続に依存し、必須チェックでもあるので、一時的な接続失敗だけでマージを止めない。再試行で通ったものは flaky として結果に残るので、続くようなら原因を直す
 - 初回はブラウザを入れる: `bun x playwright install chromium`（`quiz-app` で実行）
 - ローカルでは触った機能に関係する spec だけ流せばよい（`quiz-app` で `bun run test:e2e -- e2e/<spec>.e2e.ts`）。流さなくてもよく、全件は CI に任せる
